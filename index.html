@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DuitTrack – Smart Daily Expense Reminder</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+
+<!-- Password Lock Screen -->
+<div id="lockScreen" class="lock-screen hidden">
+  <div class="lock-card">
+    <div class="lock-icon">🔐</div>
+    <h2>DuitTrack</h2>
+    <p>Masukkan PIN untuk melanjutkan</p>
+    <div class="pin-dots" id="pinDots">
+      <span></span><span></span><span></span><span></span>
+    </div>
+    <div class="pin-pad">
+      <button class="pin-btn" onclick="pinInput('1')">1</button>
+      <button class="pin-btn" onclick="pinInput('2')">2</button>
+      <button class="pin-btn" onclick="pinInput('3')">3</button>
+      <button class="pin-btn" onclick="pinInput('4')">4</button>
+      <button class="pin-btn" onclick="pinInput('5')">5</button>
+      <button class="pin-btn" onclick="pinInput('6')">6</button>
+      <button class="pin-btn" onclick="pinInput('7')">7</button>
+      <button class="pin-btn" onclick="pinInput('8')">8</button>
+      <button class="pin-btn" onclick="pinInput('9')">9</button>
+      <button class="pin-btn pin-clear" onclick="pinClear()">⌫</button>
+      <button class="pin-btn" onclick="pinInput('0')">0</button>
+      <button class="pin-btn pin-ok" onclick="pinSubmit()">✓</button>
+    </div>
+    <p id="pinError" class="pin-error hidden">PIN salah! Coba lagi.</p>
+  </div>
+</div>
+
+<!-- Main App -->
+<div id="app" class="app hidden">
+
+  <!-- Sidebar -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="logo">
+        <span class="logo-icon">💰</span>
+        <span class="logo-text">DuitTrack</span>
+      </div>
+      <button class="sidebar-close" id="sidebarClose">✕</button>
+    </div>
+    <ul class="nav-list">
+      <li><a href="#" class="nav-item active" data-page="dashboard"><span class="nav-icon">📊</span><span>Dashboard</span></a></li>
+      <li><a href="#" class="nav-item" data-page="tambah"><span class="nav-icon">➕</span><span>Tambah</span></a></li>
+      <li><a href="#" class="nav-item" data-page="riwayat"><span class="nav-icon">📋</span><span>Riwayat</span></a></li>
+      <li><a href="#" class="nav-item" data-page="statistik"><span class="nav-icon">📈</span><span>Statistik</span></a></li>
+      <li><a href="#" class="nav-item" data-page="target"><span class="nav-icon">🎯</span><span>Target</span></a></li>
+      <li><a href="#" class="nav-item" data-page="pengaturan"><span class="nav-icon">⚙️</span><span>Pengaturan</span></a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <button class="theme-toggle" id="themeToggle" title="Toggle tema">🌙</button>
+      <span class="version">v1.0.0</span>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <!-- Top Bar -->
+    <header class="topbar">
+      <button class="menu-btn" id="menuBtn">☰</button>
+      <div class="topbar-title" id="pageTitle">Dashboard</div>
+      <div class="topbar-right">
+        <div class="realtime-clock" id="realtimeClock"></div>
+        <button class="notif-btn" id="notifBtn" title="Notifikasi">🔔</button>
+      </div>
+    </header>
+
+    <!-- Pages -->
+    <div class="page-container">
+
+      <!-- DASHBOARD PAGE -->
+      <section class="page active" id="page-dashboard">
+        <div class="page-header">
+          <h1>Selamat datang 👋</h1>
+          <p id="todayDate" class="subtitle"></p>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="cards-grid">
+          <div class="card card-primary" id="cardHariIni">
+            <div class="card-icon">📅</div>
+            <div class="card-body">
+              <p class="card-label">Hari Ini</p>
+              <p class="card-value" id="totalHariIni">Rp 0</p>
+              <p class="card-sub" id="txHariIni">0 transaksi</p>
+            </div>
+          </div>
+          <div class="card card-blue" id="cardMingguIni">
+            <div class="card-icon">📆</div>
+            <div class="card-body">
+              <p class="card-label">Minggu Ini</p>
+              <p class="card-value" id="totalMingguIni">Rp 0</p>
+              <p class="card-sub" id="txMingguIni">0 transaksi</p>
+            </div>
+          </div>
+          <div class="card card-purple">
+            <div class="card-icon">🗓️</div>
+            <div class="card-body">
+              <p class="card-label">Bulan Ini</p>
+              <p class="card-value" id="totalBulanIni">Rp 0</p>
+              <p class="card-sub" id="txBulanIni">0 transaksi</p>
+            </div>
+          </div>
+          <div class="card card-orange">
+            <div class="card-icon">🏆</div>
+            <div class="card-body">
+              <p class="card-label">Kategori Teratas</p>
+              <p class="card-value" id="topKategori">–</p>
+              <p class="card-sub" id="topKategoriNominal">–</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Budget Bar -->
+        <div class="budget-bar-card" id="budgetBarCard">
+          <div class="budget-bar-header">
+            <span>💰 Budget Hari Ini</span>
+            <span id="budgetBarLabel">–</span>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill" id="budgetProgress"></div>
+          </div>
+          <div class="budget-bar-footer">
+            <span id="budgetUsed">Terpakai: Rp 0</span>
+            <span id="budgetLeft">Sisa: –</span>
+          </div>
+        </div>
+
+        <!-- Recent Transactions -->
+        <div class="section-header">
+          <h2>Transaksi Terbaru</h2>
+          <a href="#" class="see-all" data-page="riwayat">Lihat Semua →</a>
+        </div>
+        <div id="recentList" class="recent-list"></div>
+
+        <!-- Quick Add FAB -->
+        <button class="fab" id="fabBtn" title="Tambah pengeluaran">+</button>
+      </section>
+
+      <!-- TAMBAH PAGE -->
+      <section class="page" id="page-tambah">
+        <div class="page-header">
+          <h1>Tambah Pengeluaran</h1>
+          <p class="subtitle">Catat pengeluaranmu sekarang</p>
+        </div>
+        <div class="form-card">
+          <div class="form-group">
+            <label>Nama Pengeluaran *</label>
+            <input type="text" id="inputNama" placeholder="cth: Makan siang, Kopi susu..." />
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Kategori *</label>
+              <select id="inputKategori">
+                <option value="">Pilih kategori</option>
+                <option value="Makan">🍽️ Makan</option>
+                <option value="Bensin">⛽ Bensin</option>
+                <option value="Kopi">☕ Kopi</option>
+                <option value="Jajan">🍿 Jajan</option>
+                <option value="Transportasi">🚗 Transportasi</option>
+                <option value="Tagihan">📱 Tagihan</option>
+                <option value="Belanja">🛒 Belanja</option>
+                <option value="Lainnya">📦 Lainnya</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Nominal *</label>
+              <input type="number" id="inputNominal" placeholder="0" min="0" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Tanggal *</label>
+            <input type="date" id="inputTanggal" />
+          </div>
+          <div class="form-group">
+            <label>Catatan (opsional)</label>
+            <textarea id="inputCatatan" placeholder="Catatan tambahan..."></textarea>
+          </div>
+          <div class="form-actions">
+            <button class="btn-secondary" onclick="resetForm()">Reset</button>
+            <button class="btn-primary" onclick="saveExpense()">💾 Simpan</button>
+          </div>
+        </div>
+
+        <!-- Quick Category Chips -->
+        <div class="section-header" style="margin-top:2rem">
+          <h2>Kategori Cepat</h2>
+        </div>
+        <div class="category-chips">
+          <button class="chip" onclick="quickCategory('Makan','🍽️')">🍽️ Makan</button>
+          <button class="chip" onclick="quickCategory('Bensin','⛽')">⛽ Bensin</button>
+          <button class="chip" onclick="quickCategory('Kopi','☕')">☕ Kopi</button>
+          <button class="chip" onclick="quickCategory('Jajan','🍿')">🍿 Jajan</button>
+          <button class="chip" onclick="quickCategory('Transportasi','🚗')">🚗 Transport</button>
+          <button class="chip" onclick="quickCategory('Tagihan','📱')">📱 Tagihan</button>
+          <button class="chip" onclick="quickCategory('Belanja','🛒')">🛒 Belanja</button>
+          <button class="chip" onclick="quickCategory('Lainnya','📦')">📦 Lainnya</button>
+        </div>
+      </section>
+
+      <!-- RIWAYAT PAGE -->
+      <section class="page" id="page-riwayat">
+        <div class="page-header">
+          <h1>Riwayat Pengeluaran</h1>
+          <p class="subtitle">Semua catatan pengeluaranmu</p>
+        </div>
+
+        <!-- Filter Bar -->
+        <div class="filter-bar">
+          <div class="filter-group">
+            <button class="filter-btn active" data-filter="semua">Semua</button>
+            <button class="filter-btn" data-filter="hari">Hari Ini</button>
+            <button class="filter-btn" data-filter="minggu">Minggu</button>
+            <button class="filter-btn" data-filter="bulan">Bulan</button>
+          </div>
+          <div class="filter-right">
+            <select id="filterKategori" onchange="applyFilter()">
+              <option value="">Semua Kategori</option>
+              <option value="Makan">🍽️ Makan</option>
+              <option value="Bensin">⛽ Bensin</option>
+              <option value="Kopi">☕ Kopi</option>
+              <option value="Jajan">🍿 Jajan</option>
+              <option value="Transportasi">🚗 Transportasi</option>
+              <option value="Tagihan">📱 Tagihan</option>
+              <option value="Belanja">🛒 Belanja</option>
+              <option value="Lainnya">📦 Lainnya</option>
+            </select>
+            <select id="filterSort" onchange="applyFilter()">
+              <option value="terbaru">Terbaru</option>
+              <option value="terbesar">Terbesar</option>
+              <option value="terkecil">Terkecil</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="search-bar">
+          <input type="text" id="searchInput" placeholder="🔍 Cari transaksi..." oninput="applyFilter()" />
+        </div>
+
+        <div class="riwayat-summary" id="riwayatSummary"></div>
+        <div id="riwayatList" class="riwayat-list"></div>
+      </section>
+
+      <!-- STATISTIK PAGE -->
+      <section class="page" id="page-statistik">
+        <div class="page-header">
+          <h1>Statistik</h1>
+          <p class="subtitle">Analisis pola pengeluaranmu</p>
+        </div>
+
+        <div class="stats-cards">
+          <div class="stat-card">
+            <p class="stat-label">Pengeluaran Terbesar</p>
+            <p class="stat-value" id="statTerbesar">–</p>
+            <p class="stat-sub" id="statTerbesar2">–</p>
+          </div>
+          <div class="stat-card">
+            <p class="stat-label">Kategori Paling Boros</p>
+            <p class="stat-value" id="statBorosKat">–</p>
+            <p class="stat-sub" id="statBorosNom">–</p>
+          </div>
+          <div class="stat-card">
+            <p class="stat-label">Rata-rata per Hari</p>
+            <p class="stat-value" id="statRataHari">–</p>
+            <p class="stat-sub">30 hari terakhir</p>
+          </div>
+          <div class="stat-card">
+            <p class="stat-label">Total Transaksi</p>
+            <p class="stat-value" id="statTotalTx">0</p>
+            <p class="stat-sub">semua waktu</p>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-header">
+            <h3>Pengeluaran 7 Hari Terakhir</h3>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="weeklyChart"></canvas>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-header">
+            <h3>Distribusi Kategori</h3>
+          </div>
+          <div class="chart-wrap pie-wrap">
+            <canvas id="categoryChart"></canvas>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-header">
+            <h3>Transaksi per Hari (Bulan Ini)</h3>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="dailyChart"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- TARGET PAGE -->
+      <section class="page" id="page-target">
+        <div class="page-header">
+          <h1>Target Keuangan</h1>
+          <p class="subtitle">Kelola anggaran dan tabunganmu</p>
+        </div>
+
+        <!-- Budget Harian -->
+        <div class="form-card">
+          <h3>💰 Budget Harian</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Budget Harian (Rp)</label>
+              <input type="number" id="inputBudgetHarian" placeholder="cth: 100000" />
+            </div>
+            <div class="form-group" style="justify-content:flex-end;display:flex;align-items:flex-end;">
+              <button class="btn-primary" onclick="saveBudget()">Simpan</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Budget Status -->
+        <div class="target-status-card" id="targetStatusCard">
+          <div class="target-row">
+            <span>Budget Hari Ini</span>
+            <span id="tsBudget">–</span>
+          </div>
+          <div class="target-row">
+            <span>Terpakai</span>
+            <span id="tsTerpakai" class="danger">–</span>
+          </div>
+          <div class="target-row highlight">
+            <span>Sisa</span>
+            <span id="tsSisa">–</span>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill" id="targetProgress"></div>
+          </div>
+          <p id="targetWarning" class="target-warning hidden"></p>
+        </div>
+
+        <!-- Target Nabung -->
+        <div class="form-card" style="margin-top:1.5rem">
+          <h3>🎯 Target Tabungan</h3>
+          <div class="form-group">
+            <label>Nama Target</label>
+            <input type="text" id="inputTargetNama" placeholder="cth: Beli HP baru, Liburan..." />
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Target (Rp)</label>
+              <input type="number" id="inputTargetNominal" placeholder="0" />
+            </div>
+            <div class="form-group">
+              <label>Sudah Ditabung (Rp)</label>
+              <input type="number" id="inputTargetSudah" placeholder="0" />
+            </div>
+          </div>
+          <button class="btn-primary" onclick="saveTarget()">Tambah Target</button>
+        </div>
+
+        <div id="targetList" class="target-list"></div>
+      </section>
+
+      <!-- PENGATURAN PAGE -->
+      <section class="page" id="page-pengaturan">
+        <div class="page-header">
+          <h1>Pengaturan</h1>
+          <p class="subtitle">Kelola preferensi aplikasi</p>
+        </div>
+
+        <!-- Theme -->
+        <div class="setting-card">
+          <div class="setting-row">
+            <div>
+              <p class="setting-title">🌙 Mode Gelap</p>
+              <p class="setting-desc">Ubah tampilan aplikasi</p>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="darkModeToggle" onchange="toggleTheme()" />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Password Lock -->
+        <div class="setting-card">
+          <p class="setting-title">🔐 Password Lock PIN</p>
+          <p class="setting-desc">Aktifkan PIN untuk keamanan data</p>
+          <div class="form-row" style="margin-top:1rem">
+            <div class="form-group">
+              <label>PIN Baru (4 digit)</label>
+              <input type="password" id="inputPin" maxlength="4" placeholder="••••" />
+            </div>
+            <div class="form-group">
+              <label>Konfirmasi PIN</label>
+              <input type="password" id="inputPinConfirm" maxlength="4" placeholder="••••" />
+            </div>
+          </div>
+          <div class="setting-actions">
+            <button class="btn-primary" onclick="savePin()">Simpan PIN</button>
+            <button class="btn-danger" onclick="removePin()">Hapus PIN</button>
+          </div>
+        </div>
+
+        <!-- Export / Backup -->
+        <div class="setting-card">
+          <p class="setting-title">📤 Export & Backup</p>
+          <div class="export-btns">
+            <button class="btn-outline" onclick="exportCSV()">📄 Export CSV</button>
+            <button class="btn-outline" onclick="exportExcel()">📊 Export Excel</button>
+            <button class="btn-outline" onclick="backupJSON()">💾 Backup JSON</button>
+            <button class="btn-outline" onclick="document.getElementById('restoreFile').click()">📥 Restore JSON</button>
+            <input type="file" id="restoreFile" accept=".json" onchange="restoreJSON(event)" style="display:none" />
+          </div>
+        </div>
+
+        <!-- Reset -->
+        <div class="setting-card danger-card">
+          <p class="setting-title">⚠️ Zona Berbahaya</p>
+          <div class="export-btns">
+            <button class="btn-danger" onclick="resetMonthly()">🔄 Reset Data Bulan Ini</button>
+            <button class="btn-danger" onclick="resetAll()">🗑️ Hapus Semua Data</button>
+          </div>
+        </div>
+
+        <p class="app-info">DuitTrack v1.0.0 • Dibuat dengan ❤️ untuk keuangan sehat</p>
+      </section>
+
+    </div><!-- end page-container -->
+  </main>
+</div><!-- end app -->
+
+<!-- Toast Notification -->
+<div id="toast" class="toast hidden"></div>
+
+<!-- Modal Edit -->
+<div id="editModal" class="modal hidden">
+  <div class="modal-backdrop" onclick="closeModal()"></div>
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3>Edit Pengeluaran</h3>
+      <button onclick="closeModal()">✕</button>
+    </div>
+    <div class="form-group">
+      <label>Nama Pengeluaran</label>
+      <input type="text" id="editNama" />
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Kategori</label>
+        <select id="editKategori">
+          <option value="Makan">🍽️ Makan</option>
+          <option value="Bensin">⛽ Bensin</option>
+          <option value="Kopi">☕ Kopi</option>
+          <option value="Jajan">🍿 Jajan</option>
+          <option value="Transportasi">🚗 Transportasi</option>
+          <option value="Tagihan">📱 Tagihan</option>
+          <option value="Belanja">🛒 Belanja</option>
+          <option value="Lainnya">📦 Lainnya</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Nominal</label>
+        <input type="number" id="editNominal" />
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Tanggal</label>
+      <input type="date" id="editTanggal" />
+    </div>
+    <div class="form-group">
+      <label>Catatan</label>
+      <textarea id="editCatatan"></textarea>
+    </div>
+    <div class="form-actions">
+      <button class="btn-secondary" onclick="closeModal()">Batal</button>
+      <button class="btn-primary" onclick="updateExpense()">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Modal -->
+<div id="confirmModal" class="modal hidden">
+  <div class="modal-backdrop" onclick="closeConfirm()"></div>
+  <div class="modal-card confirm-card">
+    <div class="confirm-icon">⚠️</div>
+    <h3 id="confirmTitle">Konfirmasi</h3>
+    <p id="confirmMsg">Apakah kamu yakin?</p>
+    <div class="form-actions">
+      <button class="btn-secondary" onclick="closeConfirm()">Batal</button>
+      <button class="btn-danger" id="confirmOkBtn">Ya, Lanjutkan</button>
+    </div>
+  </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
