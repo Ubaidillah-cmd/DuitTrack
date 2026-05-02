@@ -8,7 +8,7 @@
 /* ===================== STATE ===================== */
 let expenses = [];
 let savingTargets = [];
-let settings = { budgetHarian: 0, pin: '', theme: 'dark' };
+let settings = { saldoAwal: 0, saldoSekarang: 0, pin: '', theme: 'dark' };
 let currentFilter = 'semua';
 let editingId = null;
 let confirmCallback = null;
@@ -35,7 +35,14 @@ function loadData() {
   expenses = JSON.parse(localStorage.getItem('dt_expenses') || '[]');
   savingTargets = JSON.parse(localStorage.getItem('dt_targets') || '[]');
   const s = JSON.parse(localStorage.getItem('dt_settings') || '{}');
-  settings = { budgetHarian: 0, pin: '', theme: 'dark', ...s };
+  // migrate lama: budgetHarian → saldoSekarang
+  const defaultSettings = { saldoAwal: 0, saldoSekarang: 0, pin: '', theme: 'dark' };
+  settings = { ...defaultSettings, ...s };
+  if (s.budgetHarian && !s.saldoAwal) {
+    settings.saldoAwal = s.budgetHarian;
+    settings.saldoSekarang = s.budgetHarian;
+    delete settings.budgetHarian;
+  }
 }
 
 function saveData() {
@@ -201,22 +208,23 @@ function renderDashboard() {
     setText('topKategoriNominal', 'belum ada data');
   }
 
-  // Budget bar
-  const budget = settings.budgetHarian;
-  const todayTotal = sumExpenses(todayExp);
-  if (budget > 0) {
-    const pct = Math.min((todayTotal / budget) * 100, 100);
-    const sisa = budget - todayTotal;
-    setText('budgetBarLabel', formatRp(budget));
-    setText('budgetUsed', `Terpakai: ${formatRp(todayTotal)}`);
-    setText('budgetLeft', `Sisa: ${sisa >= 0 ? formatRp(sisa) : '⚠️ Melebihi!'}`);
+  // Saldo bar
+  const saldo = settings.saldoSekarang;
+  const saldoAwal = settings.saldoAwal;
+  const totalPengeluaran = sumExpenses(expenses);
+  if (saldoAwal > 0) {
+    const terpakai = saldoAwal - saldo;
+    const pct = saldoAwal > 0 ? Math.min(Math.max((terpakai / saldoAwal) * 100, 0), 100) : 0;
+    setText('budgetBarLabel', formatRp(saldo));
+    setText('budgetUsed', `Terpakai: ${formatRp(terpakai)}`);
+    setText('budgetLeft', saldo >= 0 ? `Sisa: ${formatRp(saldo)}` : `⚠️ Minus: ${formatRp(Math.abs(saldo))}`);
     const fill = document.getElementById('budgetProgress');
     fill.style.width = pct + '%';
-    fill.classList.toggle('danger', pct >= 90);
+    fill.classList.toggle('danger', saldo < 0 || pct >= 90);
   } else {
-    setText('budgetBarLabel', 'Belum diset');
+    setText('budgetBarLabel', 'Belum ada saldo');
     setText('budgetUsed', 'Terpakai: –');
-    setText('budgetLeft', 'Set budget di menu Target');
+    setText('budgetLeft', 'Isi saldo di menu Target');
     document.getElementById('budgetProgress').style.width = '0%';
   }
 
@@ -224,8 +232,10 @@ function renderDashboard() {
   const recent = [...expenses].sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 5);
   renderTxList('recentList', recent, true);
 
-  // Budget warning notification
-  if (budget > 0 && todayTotal > budget) {
+  // Saldo warning notification
+  if (settings.saldoAwal > 0 && settings.saldoSekarang < 0) {
+    setNotifBadge(true);
+  } else if (settings.saldoAwal > 0 && settings.saldoSekarang < settings.saldoAwal * 0.1) {
     setNotifBadge(true);
   } else {
     setNotifBadge(false);
@@ -268,20 +278,24 @@ function saveExpense() {
   };
 
   expenses.unshift(expense);
+  // Kurangi saldo
+  if (settings.saldoAwal > 0 || settings.saldoSekarang !== 0) {
+    settings.saldoSekarang = (settings.saldoSekarang || 0) - nominal;
+  }
   saveData();
   resetForm();
-  showToast('✅ Pengeluaran berhasil disimpan!', 'success');
+  showToast(`✅ Disimpan! Saldo berkurang ${formatRp(nominal)}`, 'success');
   refreshAll();
   checkBudgetWarning();
 }
 
 function checkBudgetWarning() {
-  const budget = settings.budgetHarian;
-  if (!budget) return;
-  const todayStr = toDateStr(new Date());
-  const todayTotal = sumExpenses(expenses.filter(e => e.date === todayStr));
-  if (todayTotal > budget) {
-    showToast(`⚠️ Budget hari ini terlampaui! (${formatRp(todayTotal)} / ${formatRp(budget)})`, 'warning');
+  if (!settings.saldoAwal) return;
+  const saldo = settings.saldoSekarang;
+  if (saldo < 0) {
+    showToast(`🚨 Saldo minus! ${formatRp(Math.abs(saldo))} melebihi saldo`, 'warning');
+  } else if (saldo < settings.saldoAwal * 0.1) {
+    showToast(`⚠️ Saldo hampir habis! Tersisa ${formatRp(saldo)}`, 'warning');
   }
 }
 
@@ -302,10 +316,14 @@ function quickCategory(cat, icon) {
 
 function deleteExpense(id) {
   openConfirm('Hapus Transaksi?', 'Data ini akan dihapus permanen.', () => {
+    const exp = expenses.find(e => e.id === id);
+    if (exp && (settings.saldoAwal > 0 || settings.saldoSekarang !== 0)) {
+      settings.saldoSekarang = (settings.saldoSekarang || 0) + exp.amount;
+    }
     expenses = expenses.filter(e => e.id !== id);
     saveData();
     refreshAll();
-    showToast('🗑️ Transaksi dihapus', 'success');
+    showToast(`🗑️ Transaksi dihapus, saldo dikembalikan`, 'success');
   });
 }
 
@@ -325,14 +343,21 @@ function updateExpense() {
   if (!editingId) return;
   const idx = expenses.findIndex(e => e.id === editingId);
   if (idx === -1) return;
+  const oldAmount = expenses[idx].amount;
+  const newAmount = parseFloat(document.getElementById('editNominal').value);
+  const diff = newAmount - oldAmount; // positive = lebih besar
   expenses[idx] = {
     ...expenses[idx],
     name: document.getElementById('editNama').value.trim(),
     category: document.getElementById('editKategori').value,
-    amount: parseFloat(document.getElementById('editNominal').value),
+    amount: newAmount,
     date: document.getElementById('editTanggal').value,
     note: document.getElementById('editCatatan').value.trim()
   };
+  // adjust saldo
+  if (settings.saldoAwal > 0 || settings.saldoSekarang !== 0) {
+    settings.saldoSekarang = (settings.saldoSekarang || 0) - diff;
+  }
   saveData();
   closeModal();
   refreshAll();
@@ -564,15 +589,34 @@ function renderCharts() {
 }
 
 /* ===================== TARGET ===================== */
-function saveBudget() {
+function setSaldo() {
   const v = parseFloat(document.getElementById('inputBudgetHarian').value);
   if (isNaN(v) || v < 0) { showToast('Masukkan nominal yang valid', 'error'); return; }
-  settings.budgetHarian = v;
+  openConfirm('Set Ulang Saldo?', `Saldo akan diganti menjadi ${formatRp(v)}. Ini tidak mengubah riwayat transaksi.`, () => {
+    settings.saldoAwal = v;
+    settings.saldoSekarang = v;
+    document.getElementById('inputBudgetHarian').value = '';
+    saveData();
+    showToast(`✅ Saldo diset ke ${formatRp(v)}!`, 'success');
+    renderTargets();
+    renderDashboard();
+  });
+}
+
+function topUpSaldo() {
+  const v = parseFloat(document.getElementById('inputBudgetHarian').value);
+  if (isNaN(v) || v <= 0) { showToast('Masukkan nominal top up yang valid', 'error'); return; }
+  settings.saldoAwal = (settings.saldoAwal || 0) + v;
+  settings.saldoSekarang = (settings.saldoSekarang || 0) + v;
+  document.getElementById('inputBudgetHarian').value = '';
   saveData();
-  showToast('✅ Budget harian disimpan!', 'success');
+  showToast(`➕ Top up ${formatRp(v)} berhasil! Saldo: ${formatRp(settings.saldoSekarang)}`, 'success');
   renderTargets();
   renderDashboard();
 }
+
+// legacy alias
+function saveBudget() { setSaldo(); }
 
 function saveTarget() {
   const nama = document.getElementById('inputTargetNama').value.trim();
@@ -598,33 +642,42 @@ function deleteTarget(id) {
 }
 
 function renderTargets() {
-  // Budget harian status
-  const budget = settings.budgetHarian;
-  document.getElementById('inputBudgetHarian').value = budget || '';
-  const todayStr = toDateStr(new Date());
-  const todayTotal = sumExpenses(expenses.filter(e => e.date === todayStr));
+  // Saldo display
+  const saldoAwal = settings.saldoAwal || 0;
+  const saldo = settings.saldoSekarang || 0;
+  const totalPakai = saldoAwal - saldo;
 
-  if (budget > 0) {
-    const sisa = budget - todayTotal;
-    const pct = Math.min((todayTotal / budget) * 100, 100);
-    setText('tsBudget', formatRp(budget));
-    setText('tsTerpakai', formatRp(todayTotal));
-    setText('tsSisa', sisa >= 0 ? formatRp(sisa) : `⚠️ -${formatRp(Math.abs(sisa))}`);
+  // big saldo nominal
+  const bigEl = document.getElementById('saldoNominalBig');
+  if (bigEl) {
+    bigEl.textContent = formatRp(saldo);
+    bigEl.style.color = saldo < 0 ? 'var(--danger)' : saldo < saldoAwal * 0.1 ? 'var(--warning)' : 'var(--accent)';
+  }
+
+  if (saldoAwal > 0) {
+    const pct = Math.min(Math.max(((saldoAwal - saldo) / saldoAwal) * 100, 0), 100);
+    setText('tsBudget', formatRp(saldoAwal));
+    setText('tsTerpakai', formatRp(Math.max(totalPakai, 0)));
+    const sisaEl = document.getElementById('tsSisa');
+    if (sisaEl) {
+      sisaEl.textContent = saldo >= 0 ? formatRp(saldo) : `⚠️ Minus ${formatRp(Math.abs(saldo))}`;
+      sisaEl.style.color = saldo < 0 ? 'var(--danger)' : saldo < saldoAwal * 0.1 ? 'var(--warning)' : '';
+    }
     document.getElementById('targetProgress').style.width = pct + '%';
-    document.getElementById('targetProgress').classList.toggle('danger', pct >= 90);
+    document.getElementById('targetProgress').classList.toggle('danger', saldo < 0 || pct >= 90);
 
     const warn = document.getElementById('targetWarning');
-    if (todayTotal > budget) {
-      warn.textContent = `🚨 Pengeluaran hari ini melebihi budget ${formatRp(budget)}!`;
+    if (saldo < 0) {
+      warn.textContent = `🚨 Saldo minus! Pengeluaran melebihi saldo ${formatRp(Math.abs(saldo))}`;
       showEl(warn);
     } else if (pct >= 80) {
-      warn.textContent = `⚠️ Sudah ${Math.round(pct)}% dari budget hari ini!`;
+      warn.textContent = `⚠️ Saldo tinggal ${formatRp(saldo)} (${Math.round(100-pct)}% tersisa)!`;
       showEl(warn);
     } else {
       hideEl(warn);
     }
   } else {
-    setText('tsBudget', 'Belum diset');
+    setText('tsBudget', 'Belum ada saldo');
     setText('tsTerpakai', '–');
     setText('tsSisa', '–');
     hideEl(document.getElementById('targetWarning'));
@@ -753,6 +806,8 @@ function resetAll() {
   openConfirm('Hapus Semua Data?', '⚠️ Semua pengeluaran dan target akan dihapus PERMANEN!', () => {
     expenses = [];
     savingTargets = [];
+    settings.saldoSekarang = 0;
+    settings.saldoAwal = 0;
     saveData();
     refreshAll();
     showToast('🗑️ Semua data dihapus', 'success');
