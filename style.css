@@ -556,6 +556,23 @@ textarea { resize: vertical; }
 .chart-wrap { position: relative; height: 220px; }
 .pie-wrap { height: 260px; }
 
+/* ---------- Saldo Display ---------- */
+.saldo-display {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 1.25rem 1.5rem;
+  text-align: center;
+}
+.saldo-label { font-size: 0.78rem; color: var(--text2); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.4rem; }
+.saldo-nominal {
+  font-family: var(--font-head);
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--accent);
+  transition: color 0.3s ease;
+}
+
 /* ---------- Target ---------- */
 .target-status-card {
   background: var(--bg2);
