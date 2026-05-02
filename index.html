@@ -121,10 +121,10 @@
           </div>
         </div>
 
-        <!-- Budget Bar -->
+        <!-- Saldo Bar -->
         <div class="budget-bar-card" id="budgetBarCard">
           <div class="budget-bar-header">
-            <span>💰 Budget Hari Ini</span>
+            <span>💳 Saldo Kamu</span>
             <span id="budgetBarLabel">–</span>
           </div>
           <div class="progress-track">
@@ -316,35 +316,41 @@
           <p class="subtitle">Kelola anggaran dan tabunganmu</p>
         </div>
 
-        <!-- Budget Harian -->
+        <!-- Saldo -->
         <div class="form-card">
-          <h3>💰 Budget Harian</h3>
-          <div class="form-row">
+          <h3>💳 Kelola Saldo</h3>
+          <div class="saldo-display" id="saldoDisplay">
+            <div class="saldo-label">Saldo Saat Ini</div>
+            <div class="saldo-nominal" id="saldoNominalBig">Rp 0</div>
+          </div>
+          <div class="form-row" style="margin-top:1.25rem">
             <div class="form-group">
-              <label>Budget Harian (Rp)</label>
-              <input type="number" id="inputBudgetHarian" placeholder="cth: 100000" />
+              <label>Set / Top Up Saldo (Rp)</label>
+              <input type="number" id="inputBudgetHarian" placeholder="cth: 500000" min="0" />
             </div>
-            <div class="form-group" style="justify-content:flex-end;display:flex;align-items:flex-end;">
-              <button class="btn-primary" onclick="saveBudget()">Simpan</button>
+            <div class="form-group" style="justify-content:flex-end;display:flex;align-items:flex-end;gap:0.5rem">
+              <button class="btn-secondary" onclick="setSaldo()">Set Ulang</button>
+              <button class="btn-primary" onclick="topUpSaldo()">➕ Top Up</button>
             </div>
           </div>
+          <p class="setting-desc" style="margin-top:0.5rem">💡 <b>Set Ulang</b> = ganti saldo ke nominal baru. <b>Top Up</b> = tambahkan ke saldo sekarang.</p>
         </div>
 
-        <!-- Budget Status -->
+        <!-- Saldo Status -->
         <div class="target-status-card" id="targetStatusCard">
           <div class="target-row">
-            <span>Budget Hari Ini</span>
+            <span>Saldo Awal (diset)</span>
             <span id="tsBudget">–</span>
           </div>
           <div class="target-row">
-            <span>Terpakai</span>
+            <span>Total Terpakai</span>
             <span id="tsTerpakai" class="danger">–</span>
           </div>
           <div class="target-row highlight">
-            <span>Sisa</span>
+            <span>💰 Saldo Tersisa</span>
             <span id="tsSisa">–</span>
           </div>
-          <div class="progress-track">
+          <div class="progress-track" style="margin-top:0.75rem">
             <div class="progress-fill" id="targetProgress"></div>
           </div>
           <p id="targetWarning" class="target-warning hidden"></p>
