@@ -278,10 +278,8 @@ function saveExpense() {
   };
 
   expenses.unshift(expense);
-  // Kurangi saldo
-  if (settings.saldoAwal > 0 || settings.saldoSekarang !== 0) {
-    settings.saldoSekarang = (settings.saldoSekarang || 0) - nominal;
-  }
+  // Kurangi saldo selalu (tidak perlu cek kondisi)
+  settings.saldoSekarang = (settings.saldoSekarang || 0) - nominal;
   saveData();
   resetForm();
   showToast(`✅ Disimpan! Saldo berkurang ${formatRp(nominal)}`, 'success');
@@ -315,15 +313,19 @@ function quickCategory(cat, icon) {
 }
 
 function deleteExpense(id) {
-  openConfirm('Hapus Transaksi?', 'Data ini akan dihapus permanen.', () => {
+  openConfirm('Hapus Transaksi?', 'Data ini akan dihapus permanen dan saldo dikembalikan.', () => {
     const exp = expenses.find(e => e.id === id);
-    if (exp && (settings.saldoAwal > 0 || settings.saldoSekarang !== 0)) {
+    if (exp) {
       settings.saldoSekarang = (settings.saldoSekarang || 0) + exp.amount;
+      // saldoAwal juga naik kalau memang pernah ada saldo
+      if (settings.saldoAwal > 0) {
+        settings.saldoAwal = (settings.saldoAwal || 0) + exp.amount;
+      }
     }
     expenses = expenses.filter(e => e.id !== id);
     saveData();
     refreshAll();
-    showToast(`🗑️ Transaksi dihapus, saldo dikembalikan`, 'success');
+    showToast(exp ? `🗑️ Terhapus! Saldo +${formatRp(exp.amount)} dikembalikan` : '🗑️ Transaksi dihapus', 'success');
   });
 }
 
@@ -354,10 +356,8 @@ function updateExpense() {
     date: document.getElementById('editTanggal').value,
     note: document.getElementById('editCatatan').value.trim()
   };
-  // adjust saldo
-  if (settings.saldoAwal > 0 || settings.saldoSekarang !== 0) {
-    settings.saldoSekarang = (settings.saldoSekarang || 0) - diff;
-  }
+  // adjust saldo selalu, tidak perlu cek kondisi
+  settings.saldoSekarang = (settings.saldoSekarang || 0) - diff;
   saveData();
   closeModal();
   refreshAll();
@@ -592,15 +592,19 @@ function renderCharts() {
 function setSaldo() {
   const v = parseFloat(document.getElementById('inputBudgetHarian').value);
   if (isNaN(v) || v < 0) { showToast('Masukkan nominal yang valid', 'error'); return; }
-  openConfirm('Set Ulang Saldo?', `Saldo akan diganti menjadi ${formatRp(v)}. Ini tidak mengubah riwayat transaksi.`, () => {
-    settings.saldoAwal = v;
-    settings.saldoSekarang = v;
-    document.getElementById('inputBudgetHarian').value = '';
-    saveData();
-    showToast(`✅ Saldo diset ke ${formatRp(v)}!`, 'success');
-    renderTargets();
-    renderDashboard();
-  });
+  openConfirm(
+    'Set Ulang Saldo?',
+    `Saldo akan diganti menjadi ${formatRp(v)}. Riwayat transaksi tidak berubah.`,
+    () => {
+      settings.saldoAwal = v;
+      settings.saldoSekarang = v;
+      document.getElementById('inputBudgetHarian').value = '';
+      saveData();
+      showToast(`✅ Saldo diset ke ${formatRp(v)}!`, 'success');
+      renderTargets();
+      renderDashboard();
+    }
+  );
 }
 
 function topUpSaldo() {
@@ -615,7 +619,6 @@ function topUpSaldo() {
   renderDashboard();
 }
 
-// legacy alias
 function saveBudget() { setSaldo(); }
 
 function saveTarget() {
@@ -821,8 +824,10 @@ function openConfirm(title, msg, cb) {
   confirmCallback = cb;
   showEl('confirmModal');
   document.getElementById('confirmOkBtn').onclick = () => {
-    closeConfirm();
-    if (confirmCallback) confirmCallback();
+    hideEl('confirmModal');
+    const fn = confirmCallback;
+    confirmCallback = null;
+    if (fn) fn();
   };
 }
 
