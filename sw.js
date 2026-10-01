@@ -1,6 +1,6 @@
 /* DuitTrack service worker – bikin app bisa dipasang & jalan offline.
    Ganti angka VERSION setiap kali kamu mengubah file app supaya cache diperbarui. */
-const VERSION = 'v1.2.1';
+const VERSION = 'v1.3.0';
 const CACHE = 'duittrack-' + VERSION;
 
 const APP_SHELL = [
@@ -41,25 +41,45 @@ self.addEventListener('activate', event => {
   })());
 });
 
-// Stale-while-revalidate: tampilkan cache dulu (cepat/offline), update di belakang layar
+// File milik app (same-origin): coba jaringan dulu supaya pull-to-refresh mendapat versi terbaru,
+// kalau offline / lambat (>4 dtk) pakai cache. File luar (CDN, font): cache dulu, update di belakang layar.
 self.addEventListener('fetch', event => {
   const req = event.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (!['http:', 'https:'].includes(url.protocol)) return;
-
-  event.respondWith((async () => {
-    const cache = await caches.open(CACHE);
-    const cached = await cache.match(req, { ignoreSearch: req.mode === 'navigate' });
-    const network = fetch(req).then(res => {
-      if (res && (res.ok || res.type === 'opaque')) cache.put(req, res.clone());
-      return res;
-    }).catch(() => null);
-
-    if (cached) { network; return cached; }
-    const res = await network;
-    if (res) return res;
-    if (req.mode === 'navigate') return (await cache.match('./index.html')) || Response.error();
-    return Response.error();
-  })());
+  event.respondWith(url.origin === self.location.origin ? networkFirst(req) : staleWhileRevalidate(req));
 });
+
+async function networkFirst(req) {
+  const cache = await caches.open(CACHE);
+  const fromNet = fetch(req, { cache: 'no-cache' }).then(res => {
+    if (res && res.ok) cache.put(req, res.clone());
+    return res;
+  });
+  try {
+    return await Promise.race([
+      fromNet,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000))
+    ]);
+  } catch (err) {
+    const cached = await cache.match(req, { ignoreSearch: req.mode === 'navigate' });
+    if (cached) return cached;
+    if (req.mode === 'navigate') {
+      const shell = await cache.match('./index.html');
+      if (shell) return shell;
+    }
+    return fromNet.catch(() => Response.error());
+  }
+}
+
+async function staleWhileRevalidate(req) {
+  const cache = await caches.open(CACHE);
+  const cached = await cache.match(req);
+  const network = fetch(req).then(res => {
+    if (res && (res.ok || res.type === 'opaque')) cache.put(req, res.clone());
+    return res;
+  }).catch(() => null);
+  if (cached) return cached;
+  return (await network) || Response.error();
+}
