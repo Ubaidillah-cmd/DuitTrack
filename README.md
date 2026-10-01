@@ -18,9 +18,11 @@ Website ini berjalan langsung di browser tanpa backend dan tanpa database. Semua
 * ✏️ Edit & hapus data
 * 🔍 Search dan filter transaksi
 * 📈 Grafik pengeluaran (Chart.js)
-* 🎯 Kelola saldo (set ulang & top up)
+* 🎯 Ringkasan saldo & pemakaian (saldo hanya bertambah lewat menu Pemasukan)
 * 🎁 Wishlist banyak item: klik untuk detail, Hapus, atau Tercapai (saldo otomatis berkurang)
-* 💵 Catat pemasukan (gaji, uang saku, freelance, dll) — saldo otomatis bertambah
+* 💵 Catat pemasukan (saldo awal, gaji, uang saku, freelance, dll) — saldo otomatis bertambah
+* 🏷️ Kategori pengeluaran: Makan, Bensin, Kopi, Jajan, Transportasi, Tagihan, Belanja, Rokok, Skincare, Pakaian, Lainnya
+* 🔄 Pull-to-refresh: tarik ke bawah saat halaman di posisi paling atas
 * 🔁 Transaksi berulang (mingguan / bulanan / tahunan): diingatkan atau dicatat otomatis
 * 📈 Grafik pemasukan vs pengeluaran 6 bulan
 * 💾 Backup & Restore data (JSON) + undo restore + pengingat backup
