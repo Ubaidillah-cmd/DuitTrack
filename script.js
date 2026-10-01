@@ -39,12 +39,17 @@ document.addEventListener('DOMContentLoaded', () => {
   resetIncomeForm();
   resetRecurringForm();
   initPWA();
+  initPullToRefresh();
   refreshAll();
   processRecurring();
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') { processRecurring(); renderDueReminders(); renderRecurring(); }
   });
-  const startPage = new URLSearchParams(location.search).get('page');
+  let startPage = new URLSearchParams(location.search).get('page');
+  try {
+    const back = sessionStorage.getItem('dt_ptr_page');
+    if (back) { sessionStorage.removeItem('dt_ptr_page'); startPage = startPage || back; }
+  } catch (e) {}
   if (startPage && document.getElementById('page-' + startPage)) navigateTo(startPage);
   updateBackupInfo();
   setTimeout(checkBackupReminder, 1500);
@@ -259,7 +264,7 @@ function renderDashboard() {
   } else {
     setText('budgetBarLabel', 'Belum ada saldo');
     setText('budgetUsed', 'Terpakai: –');
-    setText('budgetLeft', 'Isi saldo di menu Target');
+    setText('budgetLeft', 'Catat di menu Pemasukan');
     document.getElementById('budgetProgress').style.width = '0%';
   }
 
@@ -498,6 +503,10 @@ function renderRiwayatList(list) {
 
 /* ===================== STATISTIK ===================== */
 function renderCharts() {
+  if (typeof Chart === 'undefined') {
+    showToast('📡 Grafik butuh internet sekali untuk dimuat. Sambungkan internet lalu buka ulang.', 'warning');
+    return;
+  }
   const now = new Date();
   const isDark = settings.theme === 'dark';
   const textColor = isDark ? '#8b91a8' : '#5a6080';
@@ -566,7 +575,7 @@ function renderCharts() {
   expenses.forEach(e => { catMap2[e.category] = (catMap2[e.category] || 0) + e.amount; });
   const catLabels = Object.keys(catMap2);
   const catData = Object.values(catMap2);
-  const catColors = ['#00d4aa','#4f9ef8','#a78bfa','#fb923c','#f87171','#fbbf24','#34d399','#94a3b8'];
+  const catColors = ['#00d4aa','#4f9ef8','#a78bfa','#fb923c','#f87171','#fbbf24','#34d399','#94a3b8','#f472b6','#22d3ee','#a3e635','#e879f9'];
 
   const catCtx = document.getElementById('categoryChart').getContext('2d');
   if (categoryChart) categoryChart.destroy();
@@ -660,38 +669,6 @@ function renderCharts() {
 }
 
 /* ===================== TARGET ===================== */
-function setSaldo() {
-  const v = parseFloat(document.getElementById('inputBudgetHarian').value);
-  if (isNaN(v) || v < 0) { showToast('Masukkan nominal yang valid', 'error'); return; }
-  openConfirm(
-    'Set Ulang Saldo?',
-    `Saldo akan diganti menjadi ${formatRp(v)}. Riwayat transaksi tidak berubah.`,
-    () => {
-      settings.saldoAwal = v;
-      settings.saldoSekarang = v;
-      document.getElementById('inputBudgetHarian').value = '';
-      saveData();
-      showToast(`✅ Saldo diset ke ${formatRp(v)}!`, 'success');
-      renderTargets();
-      renderDashboard();
-    }
-  );
-}
-
-function topUpSaldo() {
-  const v = parseFloat(document.getElementById('inputBudgetHarian').value);
-  if (isNaN(v) || v <= 0) { showToast('Masukkan nominal top up yang valid', 'error'); return; }
-  settings.saldoAwal = (settings.saldoAwal || 0) + v;
-  settings.saldoSekarang = (settings.saldoSekarang || 0) + v;
-  document.getElementById('inputBudgetHarian').value = '';
-  saveData();
-  showToast(`➕ Top up ${formatRp(v)} berhasil! Saldo: ${formatRp(settings.saldoSekarang)}`, 'success');
-  renderTargets();
-  renderDashboard();
-}
-
-function saveBudget() { setSaldo(); }
-
 /* ===================== WISHLIST ===================== */
 const PRIORITY_META = {
   tinggi: { icon: '🔴', label: 'Tinggi', order: 0 },
@@ -1038,7 +1015,7 @@ function renderTargets() {
 
 /* ===================== PEMASUKAN ===================== */
 const INCOME_CATS = {
-  Gaji: '💼', 'Uang Saku': '🎒', Freelance: '💻', Bonus: '🎉', Hadiah: '🎁', Usaha: '🏪', Lainnya: '💵'
+  'Saldo Awal': '🏦', Gaji: '💼', 'Uang Saku': '🎒', Freelance: '💻', Bonus: '🎉', Hadiah: '🎁', Usaha: '🏪', Lainnya: '💵'
 };
 
 function getIncomeIcon(cat) { return INCOME_CATS[cat] || '💵'; }
@@ -1056,7 +1033,7 @@ function normalizeIncome(x) {
   };
 }
 
-// Pemasukan = uang masuk: menambah saldo (sama seperti Top Up, tapi tercatat)
+// Pemasukan = satu-satunya cara menambah saldo: saldo bertambah dan transaksinya tercatat
 function applyIncomeToSaldo(amount) {
   settings.saldoAwal = (settings.saldoAwal || 0) + amount;
   settings.saldoSekarang = (settings.saldoSekarang || 0) + amount;
@@ -1356,7 +1333,7 @@ function fillRecurringCategories() {
   const type = document.getElementById('rcType').value;
   const sel = document.getElementById('rcKategori');
   const cur = sel.value;
-  const expCats = ['Makan', 'Bensin', 'Kopi', 'Jajan', 'Transportasi', 'Tagihan', 'Belanja', 'Lainnya'];
+  const expCats = ['Makan', 'Bensin', 'Kopi', 'Jajan', 'Transportasi', 'Tagihan', 'Belanja', 'Rokok', 'Skincare', 'Pakaian', 'Lainnya'];
   const cats = type === 'income' ? Object.keys(INCOME_CATS) : expCats;
   sel.innerHTML = '<option value="">Pilih kategori</option>' +
     cats.map(c => `<option value="${c}">${type === 'income' ? getIncomeIcon(c) : getCatIcon(c)} ${c}</option>`).join('');
@@ -1554,6 +1531,80 @@ async function installApp() {
   updateInstallUI();
 }
 
+
+/* ===================== PULL TO REFRESH ===================== */
+// Refresh hanya jika sentuhan DIMULAI saat konten sudah di posisi paling atas, lalu ditarik ke bawah.
+// Kalau sedang di tengah/bawah halaman, scroll ke atas tidak memicu refresh.
+function initPullToRefresh() {
+  const container = document.querySelector('.page-container');
+  const ind = document.getElementById('ptr');
+  const topbar = document.querySelector('.topbar');
+  if (!container || !ind) return;
+
+  const THRESHOLD = 70;   // jarak tarik (px) agar refresh jalan
+  const MAX_PULL = 110;
+  let startY = 0, startX = 0, armed = false, pulling = false, dist = 0, busy = false;
+
+  const blocked = () =>
+    busy ||
+    !document.getElementById('lockScreen').classList.contains('hidden') ||
+    !!document.querySelector('.modal:not(.hidden)') ||
+    document.getElementById('sidebar').classList.contains('open');
+
+  const place = d => {
+    ind.style.top = (topbar ? topbar.offsetHeight : 56) + 'px';
+    ind.style.opacity = Math.min(d / THRESHOLD, 1);
+    ind.style.transform = `translateY(${d - 50}px) rotate(${d * 3}deg)`;
+    ind.classList.toggle('ready', d >= THRESHOLD);
+  };
+  const hide = () => {
+    ind.classList.add('animating');
+    ind.style.opacity = 0;
+    ind.style.transform = 'translateY(-60px)';
+    ind.classList.remove('ready');
+    setTimeout(() => ind.classList.remove('animating'), 260);
+  };
+
+  container.addEventListener('touchstart', e => {
+    armed = false; pulling = false; dist = 0;
+    if (e.touches.length !== 1 || blocked() || container.scrollTop > 0) return;
+    startY = e.touches[0].clientY;
+    startX = e.touches[0].clientX;
+    armed = true;
+  }, { passive: true });
+
+  container.addEventListener('touchmove', e => {
+    if (!armed) return;
+    if (container.scrollTop > 0) { armed = false; if (pulling) { pulling = false; hide(); } return; }
+    const dy = e.touches[0].clientY - startY;
+    const dx = Math.abs(e.touches[0].clientX - startX);
+    if (!pulling) {
+      if (dy < -5) { armed = false; return; }          // gerak ke atas = scroll biasa
+      if (dy > 12 && dy > dx) pulling = true; else return;
+    }
+    dist = Math.min(dy * 0.5, MAX_PULL);
+    if (e.cancelable) e.preventDefault();
+    place(dist);
+  }, { passive: false });
+
+  const end = () => {
+    if (!armed || !pulling) { armed = false; return; }
+    armed = false; pulling = false;
+    if (dist >= THRESHOLD) {
+      busy = true;
+      ind.classList.add('animating', 'refreshing');
+      ind.style.opacity = 1;
+      ind.style.transform = 'translateY(' + (THRESHOLD - 50) + 'px)';
+      try { sessionStorage.setItem('dt_ptr_page', document.querySelector('.page.active')?.id.replace('page-', '') || ''); } catch (e) {}
+      setTimeout(() => location.reload(), 450);
+    } else {
+      hide();
+    }
+  };
+  container.addEventListener('touchend', end, { passive: true });
+  container.addEventListener('touchcancel', () => { if (pulling) hide(); armed = false; pulling = false; }, { passive: true });
+}
+
 /* ===================== SETTINGS ===================== */
 function savePin() {
   const pin = document.getElementById('inputPin').value;
@@ -1588,6 +1639,7 @@ function exportCSV() {
 }
 
 function exportExcel() {
+  if (typeof XLSX === 'undefined') { showToast('📡 Export Excel butuh internet sekali untuk dimuat. Pakai Export CSV atau sambungkan internet.', 'warning'); return; }
   if (expenses.length === 0 && incomes.length === 0) { showToast('Tidak ada data untuk diekspor', 'warning'); return; }
   const ws_data = [
     ['Nama', 'Kategori', 'Nominal', 'Tanggal', 'Catatan'],
@@ -1825,7 +1877,7 @@ function formatDateShort(dateStr) {
 }
 
 function getCatIcon(cat) {
-  const icons = { Makan:'🍽️', Bensin:'⛽', Kopi:'☕', Jajan:'🍿', Transportasi:'🚗', Tagihan:'📱', Belanja:'🛒', Lainnya:'📦', Wishlist:'🎁' };
+  const icons = { Makan:'🍽️', Bensin:'⛽', Kopi:'☕', Jajan:'🍿', Transportasi:'🚗', Tagihan:'📱', Belanja:'🛒', Rokok:'🚬', Skincare:'🧴', Pakaian:'👕', Lainnya:'📦', Wishlist:'🎁' };
   return icons[cat] || '💸';
 }
 
