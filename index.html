@@ -72,7 +72,7 @@
     </ul>
     <div class="sidebar-footer">
       <button class="theme-toggle" id="themeToggle" title="Toggle tema">🌙</button>
-      <span class="version">v1.3.0</span>
+      <span class="version">v1.3.1</span>
     </div>
   </nav>
 
@@ -677,9 +677,13 @@
           <p class="setting-title">💾 Backup & Restore Data</p>
           <p class="setting-desc">Backup berisi pengeluaran, pemasukan, saldo, wishlist, jadwal berulang, dan pengaturan. Simpan file-nya di tempat aman (Drive / WhatsApp / Flashdisk).</p>
           <p class="backup-info" id="lastBackupInfo">Belum pernah backup</p>
+          <p class="setting-desc hidden" id="webviewHint">📱 Kamu memakai aplikasi Android: unduh/pilih file sering tidak didukung. Gunakan <b>Backup Kode</b> dan <b>Restore Kode</b> (salin &amp; tempel).</p>
+          <p class="setting-desc"><b>Backup Kode</b> = data jadi teks yang bisa disalin dan disimpan di WhatsApp / Catatan, tanpa perlu file.</p>
           <div class="export-btns">
-            <button class="btn-primary" onclick="backupJSON()">💾 Backup Data</button>
-            <button class="btn-outline" onclick="document.getElementById('restoreFile').click()">📥 Restore Data</button>
+            <button class="btn-primary" onclick="backupJSON()">💾 Backup File</button>
+            <button class="btn-outline" onclick="openBackupCode()">📋 Backup Kode</button>
+            <button class="btn-outline" onclick="document.getElementById('restoreFile').click()">📥 Restore File</button>
+            <button class="btn-outline" onclick="openRestoreCode()">📝 Restore Kode</button>
             <button class="btn-outline hidden" id="undoRestoreBtn" onclick="undoRestore()">↩️ Batalkan Restore Terakhir</button>
             <input type="file" id="restoreFile" accept=".json,application/json" onchange="restoreJSON(event)" style="display:none" />
           </div>
@@ -694,7 +698,7 @@
           </div>
         </div>
 
-        <p class="app-info">DuitTrack v1.3.0 • Dibuat dengan ❤️ untuk keuangan sehat</p>
+        <p class="app-info">DuitTrack v1.3.1 • Dibuat dengan ❤️ untuk keuangan sehat</p>
       </section>
 
       <footer class="app-footer">Development by <b>ABD. Rohman Ubaidillah, S.Kom</b></footer>
@@ -753,6 +757,21 @@
       <button class="btn-secondary" onclick="closeModal()">Batal</button>
       <button class="btn-primary" onclick="updateExpense()">Simpan</button>
     </div>
+  </div>
+</div>
+
+<!-- Modal Kode Backup / Salin teks -->
+<div id="codeModal" class="modal hidden">
+  <div class="modal-backdrop" onclick="closeCodeModal()"></div>
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3 id="codeModalTitle">Kode</h3>
+      <button onclick="closeCodeModal()">✕</button>
+    </div>
+    <p class="setting-desc" id="codeModalDesc"></p>
+    <textarea id="codeText" class="code-text" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off"></textarea>
+    <p class="setting-desc" id="codeMeta" style="margin-top:0.4rem"></p>
+    <div class="form-actions code-actions" id="codeActions"></div>
   </div>
 </div>
 
