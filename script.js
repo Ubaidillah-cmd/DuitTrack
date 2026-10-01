@@ -1505,7 +1505,10 @@ function updateInstallUI() {
   const status = document.getElementById('installStatus');
   if (!btn || !status) return;
   const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
-  if (isStandalone()) {
+  if (isAndroidWebView()) {
+    status.textContent = '✅ Kamu sudah memakai DuitTrack sebagai aplikasi Android.';
+    btn.classList.add('hidden');
+  } else if (isStandalone()) {
     status.textContent = '✅ DuitTrack sudah terpasang dan berjalan sebagai aplikasi.';
     btn.classList.add('hidden');
   } else if (deferredInstallPrompt) {
@@ -1639,6 +1642,7 @@ function exportCSV() {
 }
 
 function exportExcel() {
+  if (isAndroidWebView()) { showToast('📱 Export Excel tidak didukung di aplikasi Android. Pakai Export CSV (disalin) atau buka lewat Chrome.', 'warning'); return; }
   if (typeof XLSX === 'undefined') { showToast('📡 Export Excel butuh internet sekali untuk dimuat. Pakai Export CSV atau sambungkan internet.', 'warning'); return; }
   if (expenses.length === 0 && incomes.length === 0) { showToast('Tidak ada data untuk diekspor', 'warning'); return; }
   const ws_data = [
@@ -1659,8 +1663,16 @@ function exportExcel() {
   showToast('📊 Excel berhasil diunduh!', 'success');
 }
 
-function backupJSON() {
-  const data = {
+/* ===================== BACKUP & RESTORE ===================== */
+// Deteksi aplikasi Android (WebView, mis. APK dari WebIntoApp). Di WebView, unduh file "blob:" tidak berfungsi,
+// jadi backup/restore juga disediakan lewat KODE teks yang bisa disalin & ditempel.
+function isAndroidWebView() {
+  const ua = navigator.userAgent || '';
+  return /; wv\)/.test(ua) || (/Android/.test(ua) && /Version\/\d/.test(ua) && /Chrome\//.test(ua));
+}
+
+function buildBackupData() {
+  return {
     app: 'DuitTrack',
     version: 3,
     exportedAt: new Date().toISOString(),
@@ -1670,68 +1682,220 @@ function backupJSON() {
     savingTargets, // wishlist
     settings
   };
-  const stamp = toDateStr(new Date());
-  downloadFile(`DuitTrack_Backup_${stamp}.json`, 'application/json', JSON.stringify(data, null, 2));
+}
+
+function markBackupDone() {
   localStorage.setItem('dt_last_backup', new Date().toISOString());
   updateBackupInfo();
+}
+
+function backupJSON() {
+  // Di aplikasi Android unduh file tidak didukung → langsung pakai Kode Backup
+  if (isAndroidWebView()) {
+    showToast('📱 Di aplikasi Android, backup dilakukan lewat kode (salin lalu simpan)', 'warning');
+    openBackupCode();
+    return;
+  }
+  const stamp = toDateStr(new Date());
+  downloadFile(`DuitTrack_Backup_${stamp}.json`, 'application/json', JSON.stringify(buildBackupData(), null, 2));
+  markBackupDone();
   showToast('💾 Backup berhasil diunduh!', 'success');
 }
 
+/* --- Kode backup: JSON → (gzip) → base64 --- */
+function bytesToB64(bytes) {
+  let s = '';
+  const CH = 0x8000;
+  for (let i = 0; i < bytes.length; i += CH) s += String.fromCharCode.apply(null, bytes.subarray(i, i + CH));
+  return btoa(s);
+}
+function b64ToBytes(b64) {
+  const s = atob(b64);
+  const out = new Uint8Array(s.length);
+  for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i);
+  return out;
+}
+
+async function encodeBackupCode(obj) {
+  const bytes = new TextEncoder().encode(JSON.stringify(obj));
+  let out = bytes, prefix = 'DT1:';
+  if (typeof CompressionStream !== 'undefined') {
+    try {
+      const stream = new Blob([bytes]).stream().pipeThrough(new CompressionStream('gzip'));
+      out = new Uint8Array(await new Response(stream).arrayBuffer());
+      prefix = 'DT2:';
+    } catch (e) { out = bytes; prefix = 'DT1:'; }
+  }
+  return prefix + bytesToB64(out) + '.'; // titik di akhir = penanda selesai
+}
+
+// Menerima: kode DT1/DT2 (boleh ada teks lain di sekitarnya, mis. dari WhatsApp) atau isi file JSON mentah
+async function decodeBackupCode(text) {
+  text = (text || '').trim();
+  if (text.startsWith('{')) return JSON.parse(text);
+  const m = text.match(/DT([12]):([A-Za-z0-9+\/=\s]+)/);
+  if (!m) throw new Error('format');
+  let bytes = b64ToBytes(m[2].replace(/\s+/g, ''));
+  if (m[1] === '2') {
+    if (typeof DecompressionStream === 'undefined') throw new Error('nogzip');
+    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+    bytes = new Uint8Array(await new Response(stream).arrayBuffer());
+  }
+  return JSON.parse(new TextDecoder().decode(bytes));
+}
+
+/* --- Modal kode (dipakai backup kode, restore kode, dan salin teks) --- */
+function showCodeModal({ title, desc, text = '', readOnly = false, placeholder = '', meta = '', buttons = [] }) {
+  setText('codeModalTitle', title);
+  document.getElementById('codeModalDesc').innerHTML = desc;
+  setText('codeMeta', meta);
+  const ta = document.getElementById('codeText');
+  ta.value = text;
+  ta.readOnly = readOnly;
+  ta.placeholder = placeholder;
+  const box = document.getElementById('codeActions');
+  box.innerHTML = '';
+  buttons.forEach(b => {
+    const el = document.createElement('button');
+    el.className = b.cls || 'btn-secondary';
+    el.textContent = b.label;
+    el.addEventListener('click', b.fn);
+    box.appendChild(el);
+  });
+  showEl('codeModal');
+  if (readOnly) { ta.focus(); ta.select(); }
+}
+
+function closeCodeModal() { hideEl('codeModal'); document.getElementById('codeText').value = ''; }
+
+async function copyCodeText(successMsg) {
+  const ta = document.getElementById('codeText');
+  ta.focus();
+  ta.select();
+  ta.setSelectionRange(0, ta.value.length);
+  let ok = false;
+  try { if (navigator.clipboard && navigator.clipboard.writeText) { await navigator.clipboard.writeText(ta.value); ok = true; } } catch (e) {}
+  if (!ok) { try { ok = document.execCommand('copy'); } catch (e) {} }
+  if (ok) showToast(successMsg || '✅ Tersalin!', 'success');
+  else showToast('Tekan lama di kolom → Pilih semua → Salin', 'warning');
+  return ok;
+}
+
+async function openBackupCode() {
+  let code;
+  try { code = await encodeBackupCode(buildBackupData()); }
+  catch (e) { showToast('❌ Gagal membuat kode backup', 'error'); return; }
+  const buttons = [{ label: 'Tutup', cls: 'btn-secondary', fn: closeCodeModal }];
+  if (navigator.share) {
+    buttons.push({
+      label: '📤 Bagikan', cls: 'btn-outline',
+      fn: async () => {
+        try { await navigator.share({ title: 'Backup DuitTrack', text: code }); markBackupDone(); }
+        catch (e) { if (e && e.name !== 'AbortError') showToast('Gagal membagikan, coba Salin Kode', 'error'); }
+      }
+    });
+  }
+  buttons.push({
+    label: '📋 Salin Kode', cls: 'btn-primary',
+    fn: async () => { if (await copyCodeText('✅ Kode backup tersalin! Simpan di WhatsApp / Catatan.')) markBackupDone(); }
+  });
+  showCodeModal({
+    title: '📋 Kode Backup',
+    desc: 'Tekan <b>Salin Kode</b>, lalu simpan di tempat aman: <b>WhatsApp</b> (chat ke nomor sendiri), <b>Telegram Saved Messages</b>, <b>Google Keep / Catatan</b>, atau email. Untuk restore, tempel kembali kode ini lewat <b>Restore Kode</b>.',
+    text: code, readOnly: true,
+    meta: `${code.length.toLocaleString('id-ID')} karakter · ${expenses.length} pengeluaran, ${incomes.length} pemasukan, ${savingTargets.length} wishlist`,
+    buttons
+  });
+}
+
+function openRestoreCode() {
+  showCodeModal({
+    title: '📝 Restore dari Kode',
+    desc: 'Tempel kode backup di kolom bawah (tekan lama di kolom → <b>Tempel</b>), lalu tekan <b>Restore</b>.',
+    placeholder: 'DT2:....',
+    buttons: [
+      { label: 'Batal', cls: 'btn-secondary', fn: closeCodeModal },
+      {
+        label: '📋 Tempel', cls: 'btn-outline',
+        fn: async () => {
+          try { document.getElementById('codeText').value = await navigator.clipboard.readText(); }
+          catch (e) { showToast('Tekan lama di kolom lalu pilih Tempel', 'warning'); }
+        }
+      },
+      {
+        label: '📥 Restore', cls: 'btn-primary',
+        fn: async () => {
+          const t = document.getElementById('codeText').value.trim();
+          if (!t) { showToast('Tempel kode backup dulu', 'warning'); return; }
+          await restoreFromText(t, closeCodeModal);
+        }
+      }
+    ]
+  });
+}
+
+/* --- Restore --- */
 function restoreJSON(event) {
   const file = event.target.files[0];
   event.target.value = '';
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = e => {
-    let data;
-    try {
-      data = JSON.parse(e.target.result);
-      if (!data || !Array.isArray(data.expenses)) throw new Error('Format tidak valid');
-    } catch {
-      showToast('❌ File backup tidak valid', 'error');
-      return;
-    }
-
-    // Bersihkan data agar aman kalau file backup diedit manual / dari versi lama
-    const newExpenses = data.expenses
-      .filter(x => x && x.name && Number(x.amount) > 0 && x.date)
-      .map(x => ({
-        ...x,
-        id: String(x.id || Date.now() + Math.random().toString(36).slice(2, 6)),
-        amount: Number(x.amount),
-        createdAt: x.createdAt || new Date(x.date).toISOString()
-      }));
-    const newWishlist = (Array.isArray(data.savingTargets) ? data.savingTargets : []).map(normalizeWishlist);
-    const newIncomes = (Array.isArray(data.incomes) ? data.incomes : [])
-      .filter(x => x && x.name && Number(x.amount) > 0 && x.date).map(normalizeIncome);
-    const newRecurring = (Array.isArray(data.recurring) ? data.recurring : []).map(normalizeRecurring);
-    const tgl = data.exportedAt ? new Date(data.exportedAt).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) : 'tidak diketahui';
-
-    openConfirm(
-      'Restore Data?',
-      `Backup tanggal ${tgl}: ${newExpenses.length} pengeluaran, ${newIncomes.length} pemasukan, ${newWishlist.length} wishlist, ${newRecurring.length} jadwal berulang. Data saat ini akan ditimpa (kamu masih bisa membatalkan restore ini).`,
-      () => {
-        // simpan snapshot data sekarang supaya restore bisa dibatalkan
-        localStorage.setItem('dt_pre_restore', JSON.stringify({ expenses, incomes, recurring, savingTargets, settings, at: new Date().toISOString() }));
-
-        expenses = newExpenses;
-        incomes = newIncomes;
-        recurring = newRecurring;
-        savingTargets = newWishlist;
-        if (data.settings && typeof data.settings === 'object') {
-          settings = { saldoAwal: 0, saldoSekarang: 0, pin: '', theme: 'dark', ...data.settings };
-        }
-        saveData();
-        applyTheme();
-        updateDarkModeToggle();
-        refreshAll();
-        updateBackupInfo();
-        showToast('📥 Data berhasil di-restore!', 'success');
-      }
-    );
-  };
+  reader.onload = e => restoreFromText(e.target.result);
   reader.onerror = () => showToast('❌ Gagal membaca file', 'error');
   reader.readAsText(file);
+}
+
+async function restoreFromText(text, onApplied) {
+  let data;
+  try {
+    data = await decodeBackupCode(text);
+    if (!data || !Array.isArray(data.expenses)) throw new Error('format');
+  } catch (e) {
+    showToast(e && e.message === 'nogzip'
+      ? '❌ Browser ini tidak bisa membuka kode terkompresi. Buka dengan Chrome terbaru.'
+      : '❌ Kode / file backup tidak valid. Pastikan seluruh kode tersalin utuh.', 'error');
+    return false;
+  }
+
+  // Bersihkan data agar aman kalau backup diedit manual / dari versi lama
+  const newExpenses = data.expenses
+    .filter(x => x && x.name && Number(x.amount) > 0 && x.date)
+    .map(x => ({
+      ...x,
+      id: String(x.id || Date.now() + Math.random().toString(36).slice(2, 6)),
+      amount: Number(x.amount),
+      createdAt: x.createdAt || new Date(x.date).toISOString()
+    }));
+  const newWishlist = (Array.isArray(data.savingTargets) ? data.savingTargets : []).map(normalizeWishlist);
+  const newIncomes = (Array.isArray(data.incomes) ? data.incomes : [])
+    .filter(x => x && x.name && Number(x.amount) > 0 && x.date).map(normalizeIncome);
+  const newRecurring = (Array.isArray(data.recurring) ? data.recurring : []).map(normalizeRecurring);
+  const tgl = data.exportedAt ? new Date(data.exportedAt).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) : 'tidak diketahui';
+
+  openConfirm(
+    'Restore Data?',
+    `Backup tanggal ${tgl}: ${newExpenses.length} pengeluaran, ${newIncomes.length} pemasukan, ${newWishlist.length} wishlist, ${newRecurring.length} jadwal berulang. Data saat ini akan ditimpa (kamu masih bisa membatalkan restore ini).`,
+    () => {
+      // simpan snapshot data sekarang supaya restore bisa dibatalkan
+      localStorage.setItem('dt_pre_restore', JSON.stringify({ expenses, incomes, recurring, savingTargets, settings, at: new Date().toISOString() }));
+
+      expenses = newExpenses;
+      incomes = newIncomes;
+      recurring = newRecurring;
+      savingTargets = newWishlist;
+      if (data.settings && typeof data.settings === 'object') {
+        settings = { saldoAwal: 0, saldoSekarang: 0, pin: '', theme: 'dark', ...data.settings };
+      }
+      saveData();
+      applyTheme();
+      updateDarkModeToggle();
+      refreshAll();
+      updateBackupInfo();
+      if (onApplied) onApplied();
+      showToast('📥 Data berhasil di-restore!', 'success');
+    }
+  );
+  return true;
 }
 
 function undoRestore() {
@@ -1759,6 +1923,8 @@ function undoRestore() {
 }
 
 function updateBackupInfo() {
+  const hint = document.getElementById('webviewHint');
+  if (hint) hint.classList.toggle('hidden', !isAndroidWebView());
   const el = document.getElementById('lastBackupInfo');
   if (el) {
     const last = localStorage.getItem('dt_last_backup');
@@ -1903,6 +2069,20 @@ function escHtml(s) {
 }
 
 function downloadFile(filename, type, content) {
+  if (isAndroidWebView()) {
+    // WebView tidak bisa mengunduh file blob → tampilkan isinya supaya bisa disalin
+    showCodeModal({
+      title: '📄 ' + filename,
+      desc: 'Unduh file tidak didukung di aplikasi Android. Tekan <b>Salin</b> lalu tempel ke Catatan / WhatsApp / Google Sheets.',
+      text: content, readOnly: true,
+      meta: `${content.length.toLocaleString('id-ID')} karakter`,
+      buttons: [
+        { label: 'Tutup', cls: 'btn-secondary', fn: closeCodeModal },
+        { label: '📋 Salin', cls: 'btn-primary', fn: () => copyCodeText('✅ Tersalin!') }
+      ]
+    });
+    return;
+  }
   const blob = new Blob([content], { type });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
