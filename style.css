@@ -868,3 +868,12 @@ html, body { overscroll-behavior-y: contain; }
 .ptr.refreshing .ptr-icon { display: inline-block; animation: ptrSpin 0.7s linear infinite; }
 .ptr.animating { transition: transform 0.25s ease, opacity 0.25s ease; }
 @keyframes ptrSpin { to { transform: rotate(360deg); } }
+
+/* ---------- Kode backup ---------- */
+.code-text {
+  width: 100%; min-height: 170px; margin-top: 0.75rem; padding: 0.7rem 0.85rem;
+  font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.72rem; line-height: 1.4;
+  word-break: break-all; resize: vertical; color: var(--text);
+  background: var(--bg3); border: 1px solid var(--border); border-radius: var(--r-sm);
+}
+.code-actions { margin-top: 1rem; flex-wrap: wrap; }
