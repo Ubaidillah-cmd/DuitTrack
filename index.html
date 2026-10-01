@@ -72,7 +72,7 @@
     </ul>
     <div class="sidebar-footer">
       <button class="theme-toggle" id="themeToggle" title="Toggle tema">🌙</button>
-      <span class="version">v1.2.0</span>
+      <span class="version">v1.3.0</span>
     </div>
   </nav>
 
@@ -89,6 +89,7 @@
     </header>
 
     <!-- Pages -->
+    <div id="ptr" class="ptr" aria-hidden="true"><span class="ptr-icon">↻</span></div>
     <div class="page-container">
 
       <!-- DASHBOARD PAGE -->
@@ -194,6 +195,9 @@
                 <option value="Transportasi">🚗 Transportasi</option>
                 <option value="Tagihan">📱 Tagihan</option>
                 <option value="Belanja">🛒 Belanja</option>
+                <option value="Rokok">🚬 Rokok</option>
+                <option value="Skincare">🧴 Skincare</option>
+                <option value="Pakaian">👕 Pakaian</option>
                 <option value="Lainnya">📦 Lainnya</option>
               </select>
             </div>
@@ -228,6 +232,9 @@
           <button class="chip" onclick="quickCategory('Transportasi','🚗')">🚗 Transport</button>
           <button class="chip" onclick="quickCategory('Tagihan','📱')">📱 Tagihan</button>
           <button class="chip" onclick="quickCategory('Belanja','🛒')">🛒 Belanja</button>
+          <button class="chip" onclick="quickCategory('Rokok','🚬')">🚬 Rokok</button>
+          <button class="chip" onclick="quickCategory('Skincare','🧴')">🧴 Skincare</button>
+          <button class="chip" onclick="quickCategory('Pakaian','👕')">👕 Pakaian</button>
           <button class="chip" onclick="quickCategory('Lainnya','📦')">📦 Lainnya</button>
         </div>
       </section>
@@ -268,6 +275,7 @@
               <label>Kategori *</label>
               <select id="incKategori">
                 <option value="">Pilih kategori</option>
+                <option value="Saldo Awal">🏦 Saldo Awal</option>
                 <option value="Gaji">💼 Gaji</option>
                 <option value="Uang Saku">🎒 Uang Saku</option>
                 <option value="Freelance">💻 Freelance</option>
@@ -390,6 +398,9 @@
               <option value="Transportasi">🚗 Transportasi</option>
               <option value="Tagihan">📱 Tagihan</option>
               <option value="Belanja">🛒 Belanja</option>
+              <option value="Rokok">🚬 Rokok</option>
+              <option value="Skincare">🧴 Skincare</option>
+              <option value="Pakaian">👕 Pakaian</option>
               <option value="Lainnya">📦 Lainnya</option>
               <option value="Wishlist">🎁 Wishlist</option>
             </select>
@@ -480,33 +491,26 @@
       <section class="page" id="page-target">
         <div class="page-header">
           <h1>Target Keuangan</h1>
-          <p class="subtitle">Kelola anggaran dan tabunganmu</p>
+          <p class="subtitle">Pantau saldo dan pemakaian uangmu</p>
         </div>
 
-        <!-- Saldo -->
+        <!-- Saldo (hanya tampil; tambah saldo lewat Pemasukan) -->
         <div class="form-card">
-          <h3>💳 Kelola Saldo</h3>
+          <h3>💳 Saldo Kamu</h3>
           <div class="saldo-display" id="saldoDisplay">
             <div class="saldo-label">Saldo Saat Ini</div>
             <div class="saldo-nominal" id="saldoNominalBig">Rp 0</div>
           </div>
-          <div class="form-row" style="margin-top:1.25rem">
-            <div class="form-group">
-              <label>Set / Top Up Saldo (Rp)</label>
-              <input type="number" id="inputBudgetHarian" placeholder="cth: 500000" min="0" />
-            </div>
-            <div class="form-group" style="justify-content:flex-end;display:flex;align-items:flex-end;gap:0.5rem">
-              <button class="btn-secondary" onclick="setSaldo()">Set Ulang</button>
-              <button class="btn-primary" onclick="topUpSaldo()">➕ Top Up</button>
-            </div>
+          <p class="setting-desc" style="margin-top:1rem">💡 Saldo bertambah otomatis dari menu <b>Pemasukan</b>. Untuk saldo awal, catat sebagai pemasukan dengan kategori <b>Saldo Awal</b>.</p>
+          <div class="form-actions" style="margin-top:0.75rem">
+            <button class="btn-primary" onclick="navigateTo('pemasukan')">➕ Tambah Pemasukan</button>
           </div>
-          <p class="setting-desc" style="margin-top:0.5rem">💡 <b>Set Ulang</b> = ganti saldo ke nominal baru. <b>Top Up</b> = tambahkan ke saldo sekarang.</p>
         </div>
 
         <!-- Saldo Status -->
         <div class="target-status-card" id="targetStatusCard">
           <div class="target-row">
-            <span>Saldo Awal (diset)</span>
+            <span>Total Saldo Masuk</span>
             <span id="tsBudget">–</span>
           </div>
           <div class="target-row">
@@ -690,7 +694,7 @@
           </div>
         </div>
 
-        <p class="app-info">DuitTrack v1.2.0 • Dibuat dengan ❤️ untuk keuangan sehat</p>
+        <p class="app-info">DuitTrack v1.3.0 • Dibuat dengan ❤️ untuk keuangan sehat</p>
       </section>
 
       <footer class="app-footer">Development by <b>ABD. Rohman Ubaidillah, S.Kom</b></footer>
@@ -725,6 +729,9 @@
           <option value="Transportasi">🚗 Transportasi</option>
           <option value="Tagihan">📱 Tagihan</option>
           <option value="Belanja">🛒 Belanja</option>
+          <option value="Rokok">🚬 Rokok</option>
+          <option value="Skincare">🧴 Skincare</option>
+          <option value="Pakaian">👕 Pakaian</option>
           <option value="Lainnya">📦 Lainnya</option>
           <option value="Wishlist">🎁 Wishlist</option>
         </select>
