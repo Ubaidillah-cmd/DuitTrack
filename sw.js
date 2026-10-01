@@ -1,6 +1,6 @@
 /* DuitTrack service worker – bikin app bisa dipasang & jalan offline.
    Ganti angka VERSION setiap kali kamu mengubah file app supaya cache diperbarui. */
-const VERSION = 'v1.3.0';
+const VERSION = 'v1.3.1';
 const CACHE = 'duittrack-' + VERSION;
 
 const APP_SHELL = [
