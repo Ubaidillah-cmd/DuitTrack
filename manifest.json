@@ -1,6 +1,6 @@
 {
-  "name": "DuitTrack – Smart Daily Expense Reminder",
-  "short_name": "DuitTrack",
+  "name": "RizqTrack – Smart Daily Expense Reminder",
+  "short_name": "RizqTrack",
   "description": "Catat pemasukan & pengeluaran harian, wishlist, dan transaksi berulang. Data tersimpan lokal di perangkatmu.",
   "start_url": "./index.html",
   "scope": "./",
