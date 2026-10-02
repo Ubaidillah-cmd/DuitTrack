@@ -72,7 +72,7 @@
     </ul>
     <div class="sidebar-footer">
       <button class="theme-toggle" id="themeToggle" title="Toggle tema">🌙</button>
-      <span class="version">v1.4.1</span>
+      <span class="version">v1.4.2</span>
     </div>
   </nav>
 
@@ -659,6 +659,7 @@
           <p class="setting-desc" id="installStatus">–</p>
           <div class="export-btns">
             <button class="btn-primary" id="installBtn" onclick="installApp()">📲 Pasang RizqTrack</button>
+            <button class="btn-outline hidden" id="installAltBtn" onclick="installViaBrowser()">🌐 Pasang lewat browser</button>
           </div>
         </div>
 
@@ -698,7 +699,7 @@
           </div>
         </div>
 
-        <p class="app-info">RizqTrack v1.4.1 • Dibuat dengan ❤️ untuk keuangan sehat</p>
+        <p class="app-info">RizqTrack v1.4.2 • Dibuat dengan ❤️ untuk keuangan sehat</p>
       </section>
 
       <footer class="app-footer">Development by <b>ABD. Rohman Ubaidillah, S.Kom</b></footer>
@@ -765,7 +766,7 @@
   <div class="modal-backdrop" onclick="closeInstallHelp()"></div>
   <div class="modal-card">
     <div class="modal-header">
-      <h3>📲 Cara Memasang</h3>
+      <h3 id="installModalTitle">📲 Cara Memasang</h3>
       <button onclick="closeInstallHelp()">✕</button>
     </div>
     <p class="setting-desc">Ikuti langkah berikut di browser kamu:</p>
