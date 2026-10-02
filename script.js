@@ -1627,11 +1627,16 @@ function updateInstallUI() {
   } else if (!/^https?:$/.test(location.protocol)) {
     status.textContent = 'Pasang aplikasi butuh dibuka lewat https:// atau localhost (bukan file langsung). Upload ke Vercel / GitHub Pages / Netlify, atau pakai Live Server.';
     btn.classList.add('hidden');
+  } else if (deferredInstallPrompt) {
+    // Jalur tercepat: browser mengunduh & memasang sendiri, cukup 1x konfirmasi "Instal"
+    status.textContent = 'Ketuk tombol di bawah lalu pilih Instal. Browser akan mengunduh dan memasang RizqTrack sendiri, tanpa izin tambahan.';
+    btn.classList.remove('hidden');
+    if (alt && apkAvailable) { alt.textContent = '📥 Unduh file APK'; alt.classList.remove('hidden'); }
   } else if (apkAvailable) {
-    status.textContent = 'Pasang RizqTrack sebagai aplikasi Android (APK). Setelah unduhan selesai, ketuk file-nya untuk menginstal.';
+    status.textContent = 'Ketuk tombol di bawah untuk mengunduh RizqTrack.apk, lalu ketuk Buka dan Instal. Android mewajibkan konfirmasi ini demi keamanan.';
     btn.textContent = '📲 Pasang RizqTrack (APK)';
     btn.classList.remove('hidden');
-    if (alt) alt.classList.remove('hidden');
+    if (alt) { alt.textContent = '🌐 Pasang lewat browser'; alt.classList.remove('hidden'); }
   } else {
     // Tombol SELALU tampil: kalau browser memberi izin pasang langsung → satu ketukan,
     // kalau tidak → tampil petunjuk langkah sesuai browser yang dipakai.
@@ -1661,11 +1666,10 @@ const INSTALL_STEPS = {
 };
 
 const APK_STEPS = [
-  'Tunggu unduhan selesai (lihat notifikasi <b>Download</b> atau folder <b>Unduhan</b>).',
-  'Ketuk file <b>RizqTrack.apk</b>.',
-  'Jika muncul peringatan <i>“tidak diizinkan memasang aplikasi dari sumber ini”</i>, ketuk <b>Setelan</b> lalu aktifkan <b>“Izinkan dari sumber ini”</b>, kemudian kembali.',
-  'Ketuk <b>Instal</b>. Jika Play Protect bertanya, pilih <b>“Instal saja”</b>.',
-  'Buka <b>RizqTrack</b> dari layar utama / laci aplikasi.'
+  'Setelah unduhan selesai, ketuk <b>Buka</b> pada bar / notifikasi unduhan (atau buka file <b>RizqTrack.apk</b> dari folder Unduhan).',
+  '<b>Hanya pertama kali:</b> jika muncul peringatan sumber tidak dikenal, ketuk <b>Setelan</b> → aktifkan <b>“Izinkan dari sumber ini”</b> → kembali.',
+  'Ketuk <b>Instal</b> (jika Play Protect bertanya, pilih <b>“Instal saja”</b>).',
+  'Selesai. Buka <b>RizqTrack</b> dari layar utama.'
 ];
 
 function showInstallHelp(kind) {
@@ -1689,8 +1693,15 @@ function downloadApk() {
 
 // Tombol utama: unduh APK kalau tersedia, kalau tidak pasang lewat browser (PWA)
 function installApp() {
+  if (deferredInstallPrompt) { installViaBrowser(); return; }   // pasang langsung (paling cepat)
   if (apkAvailable) { downloadApk(); return; }
-  installViaBrowser();
+  installViaBrowser();                                           // petunjuk manual
+}
+
+// Tombol kedua: kebalikan dari tombol utama
+function installAlt() {
+  if (deferredInstallPrompt && apkAvailable) downloadApk();
+  else installViaBrowser();
 }
 
 async function installViaBrowser() {
