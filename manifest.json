@@ -2,7 +2,7 @@
   "name": "RizqTrack – Smart Daily Expense Reminder",
   "short_name": "RizqTrack",
   "description": "Catat pemasukan & pengeluaran harian, wishlist, dan transaksi berulang. Data tersimpan lokal di perangkatmu.",
-  "start_url": "./index.html",
+  "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
@@ -16,7 +16,7 @@
     { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "shortcuts": [
-    { "name": "Tambah Pengeluaran", "url": "./index.html?page=tambah", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
-    { "name": "Tambah Pemasukan", "url": "./index.html?page=pemasukan", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
+    { "name": "Tambah Pengeluaran", "url": "./?page=tambah", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Tambah Pemasukan", "url": "./?page=pemasukan", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
   ]
 }
