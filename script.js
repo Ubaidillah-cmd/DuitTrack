@@ -1568,7 +1568,25 @@ function renderRecurring() {
 /* ===================== PWA ===================== */
 let deferredInstallPrompt = null;
 
+// Letakkan file APK di folder yang sama dengan index.html dengan nama ini.
+// Kalau filenya ada & dibuka dari HP Android (browser), tombol Pasang langsung mengunduh APK-nya.
+const APK_URL = 'RizqTrack.apk';
+let apkAvailable = false;
+
+async function checkApkAvailable() {
+  if (!/^https?:$/.test(location.protocol) || !/Android/i.test(navigator.userAgent) || isAndroidWebView()) return;
+  try {
+    const r = await fetch(APK_URL, { method: 'HEAD', cache: 'no-cache' });
+    const type = r.headers.get('content-type') || '';
+    const size = parseInt(r.headers.get('content-length') || '0', 10);
+    // Hosting dengan "fallback ke index.html" membalas 200 berisi HTML → bukan APK sungguhan
+    apkAvailable = r.ok && !/text\/html/i.test(type) && (size === 0 || size > 50000);
+  } catch (e) { apkAvailable = false; }
+  updateInstallUI();
+}
+
 function initPWA() {
+  checkApkAvailable();
   // Minta browser/WebView agar data tidak dibersihkan otomatis saat penyimpanan hampir penuh
   try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); } catch (e) {}
   if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
@@ -1596,7 +1614,10 @@ function isStandalone() {
 function updateInstallUI() {
   const btn = document.getElementById('installBtn');
   const status = document.getElementById('installStatus');
+  const alt = document.getElementById('installAltBtn');
   if (!btn || !status) return;
+  if (alt) alt.classList.add('hidden');
+  btn.textContent = '📲 Pasang RizqTrack';
   if (isAndroidWebView()) {
     status.textContent = '✅ Kamu sudah memakai RizqTrack sebagai aplikasi Android.';
     btn.classList.add('hidden');
@@ -1606,6 +1627,11 @@ function updateInstallUI() {
   } else if (!/^https?:$/.test(location.protocol)) {
     status.textContent = 'Pasang aplikasi butuh dibuka lewat https:// atau localhost (bukan file langsung). Upload ke Vercel / GitHub Pages / Netlify, atau pakai Live Server.';
     btn.classList.add('hidden');
+  } else if (apkAvailable) {
+    status.textContent = 'Pasang RizqTrack sebagai aplikasi Android (APK). Setelah unduhan selesai, ketuk file-nya untuk menginstal.';
+    btn.textContent = '📲 Pasang RizqTrack (APK)';
+    btn.classList.remove('hidden');
+    if (alt) alt.classList.remove('hidden');
   } else {
     // Tombol SELALU tampil: kalau browser memberi izin pasang langsung → satu ketukan,
     // kalau tidak → tampil petunjuk langkah sesuai browser yang dipakai.
@@ -1634,14 +1660,40 @@ const INSTALL_STEPS = {
   desktop: ['Lihat ujung kanan kolom alamat browser, cari ikon <b>Instal</b> (monitor dengan panah).', 'Klik ikon itu, lalu klik <b>Instal</b>.', 'Atau buka menu <b>⋮</b> → <b>“Instal RizqTrack…”</b> / <b>“Simpan dan bagikan → Instal”</b>.']
 };
 
-function showInstallHelp() {
-  const steps = INSTALL_STEPS[detectBrowser()] || INSTALL_STEPS.desktop;
+const APK_STEPS = [
+  'Tunggu unduhan selesai (lihat notifikasi <b>Download</b> atau folder <b>Unduhan</b>).',
+  'Ketuk file <b>RizqTrack.apk</b>.',
+  'Jika muncul peringatan <i>“tidak diizinkan memasang aplikasi dari sumber ini”</i>, ketuk <b>Setelan</b> lalu aktifkan <b>“Izinkan dari sumber ini”</b>, kemudian kembali.',
+  'Ketuk <b>Instal</b>. Jika Play Protect bertanya, pilih <b>“Instal saja”</b>.',
+  'Buka <b>RizqTrack</b> dari layar utama / laci aplikasi.'
+];
+
+function showInstallHelp(kind) {
+  const steps = kind === 'apk' ? APK_STEPS : (INSTALL_STEPS[detectBrowser()] || INSTALL_STEPS.desktop);
+  setText('installModalTitle', kind === 'apk' ? '📥 Menginstal APK' : '📲 Cara Memasang');
   document.getElementById('installSteps').innerHTML = steps.map(s => `<li>${s}</li>`).join('');
   showEl('installModal');
 }
 function closeInstallHelp() { hideEl('installModal'); }
 
-async function installApp() {
+function downloadApk() {
+  const a = document.createElement('a');
+  a.href = APK_URL;
+  a.download = 'RizqTrack.apk';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  showToast('⬇️ Mengunduh RizqTrack.apk…', 'success');
+  showInstallHelp('apk');
+}
+
+// Tombol utama: unduh APK kalau tersedia, kalau tidak pasang lewat browser (PWA)
+function installApp() {
+  if (apkAvailable) { downloadApk(); return; }
+  installViaBrowser();
+}
+
+async function installViaBrowser() {
   // Browser tidak mengirim izin pasang otomatis → tampilkan langkah manual
   if (!deferredInstallPrompt) { showInstallHelp(); return; }
   const promptEvent = deferredInstallPrompt;
