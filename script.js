@@ -1574,7 +1574,7 @@ const APK_URL = 'RizqTrack.apk';
 let apkAvailable = false;
 
 async function checkApkAvailable() {
-  if (!/^https?:$/.test(location.protocol) || !/Android/i.test(navigator.userAgent) || isAndroidWebView()) return;
+  if (!/^https?:$/.test(location.protocol) || isAndroidWebView() || /iphone|ipad|ipod/i.test(navigator.userAgent)) return;
   try {
     const r = await fetch(APK_URL, { method: 'HEAD', cache: 'no-cache' });
     const type = r.headers.get('content-type') || '';
@@ -1627,14 +1627,12 @@ function updateInstallUI() {
   } else if (!/^https?:$/.test(location.protocol)) {
     status.textContent = 'Pasang aplikasi butuh dibuka lewat https:// atau localhost (bukan file langsung). Upload ke Vercel / GitHub Pages / Netlify, atau pakai Live Server.';
     btn.classList.add('hidden');
-  } else if (deferredInstallPrompt) {
-    // Jalur tercepat: browser mengunduh & memasang sendiri, cukup 1x konfirmasi "Instal"
-    status.textContent = 'Ketuk tombol di bawah lalu pilih Instal. Browser akan mengunduh dan memasang RizqTrack sendiri, tanpa izin tambahan.';
-    btn.classList.remove('hidden');
-    if (alt && apkAvailable) { alt.textContent = '📥 Unduh file APK'; alt.classList.remove('hidden'); }
   } else if (apkAvailable) {
-    status.textContent = 'Ketuk tombol di bawah untuk mengunduh RizqTrack.apk, lalu ketuk Buka dan Instal. Android mewajibkan konfirmasi ini demi keamanan.';
-    btn.textContent = '📲 Pasang RizqTrack (APK)';
+    const android = /Android/i.test(navigator.userAgent);
+    status.textContent = android
+      ? 'Ketuk tombol di bawah: RizqTrack.apk langsung terunduh. Setelah selesai, ketuk Buka lalu Instal di notifikasi unduhan.'
+      : 'Ketuk tombol di bawah untuk langsung mengunduh RizqTrack.apk. Buka file itu di HP Android untuk memasangnya.';
+    btn.textContent = android ? '📲 Pasang RizqTrack (APK)' : '⬇️ Unduh RizqTrack (APK)';
     btn.classList.remove('hidden');
     if (alt) { alt.textContent = '🌐 Pasang lewat browser'; alt.classList.remove('hidden'); }
   } else {
@@ -1665,16 +1663,9 @@ const INSTALL_STEPS = {
   desktop: ['Lihat ujung kanan kolom alamat browser, cari ikon <b>Instal</b> (monitor dengan panah).', 'Klik ikon itu, lalu klik <b>Instal</b>.', 'Atau buka menu <b>⋮</b> → <b>“Instal RizqTrack…”</b> / <b>“Simpan dan bagikan → Instal”</b>.']
 };
 
-const APK_STEPS = [
-  'Setelah unduhan selesai, ketuk <b>Buka</b> pada bar / notifikasi unduhan (atau buka file <b>RizqTrack.apk</b> dari folder Unduhan).',
-  '<b>Hanya pertama kali:</b> jika muncul peringatan sumber tidak dikenal, ketuk <b>Setelan</b> → aktifkan <b>“Izinkan dari sumber ini”</b> → kembali.',
-  'Ketuk <b>Instal</b> (jika Play Protect bertanya, pilih <b>“Instal saja”</b>).',
-  'Selesai. Buka <b>RizqTrack</b> dari layar utama.'
-];
 
-function showInstallHelp(kind) {
-  const steps = kind === 'apk' ? APK_STEPS : (INSTALL_STEPS[detectBrowser()] || INSTALL_STEPS.desktop);
-  setText('installModalTitle', kind === 'apk' ? '📥 Menginstal APK' : '📲 Cara Memasang');
+function showInstallHelp() {
+  const steps = INSTALL_STEPS[detectBrowser()] || INSTALL_STEPS.desktop;
   document.getElementById('installSteps').innerHTML = steps.map(s => `<li>${s}</li>`).join('');
   showEl('installModal');
 }
@@ -1688,21 +1679,20 @@ function downloadApk() {
   a.click();
   a.remove();
   showToast('⬇️ Mengunduh RizqTrack.apk…', 'success');
-  showInstallHelp('apk');
+  const status = document.getElementById('installStatus');
+  if (status) status.textContent = /Android/i.test(navigator.userAgent)
+    ? '✅ Unduhan dimulai. Setelah selesai, ketuk Buka lalu Instal pada notifikasi unduhan. (Pertama kali: izinkan “sumber tidak dikenal” jika diminta.)'
+    : '✅ Unduhan dimulai. Kirim / buka file RizqTrack.apk di HP Android untuk memasangnya.';
 }
 
 // Tombol utama: unduh APK kalau tersedia, kalau tidak pasang lewat browser (PWA)
 function installApp() {
-  if (deferredInstallPrompt) { installViaBrowser(); return; }   // pasang langsung (paling cepat)
-  if (apkAvailable) { downloadApk(); return; }
-  installViaBrowser();                                           // petunjuk manual
+  if (apkAvailable) { downloadApk(); return; }   // langsung unduh
+  installViaBrowser();                            // tidak ada APK → pasang lewat browser / petunjuk
 }
 
-// Tombol kedua: kebalikan dari tombol utama
-function installAlt() {
-  if (deferredInstallPrompt && apkAvailable) downloadApk();
-  else installViaBrowser();
-}
+// Tombol kedua: selalu cara browser (PWA)
+function installAlt() { installViaBrowser(); }
 
 async function installViaBrowser() {
   // Browser tidak mengirim izin pasang otomatis → tampilkan langkah manual
