@@ -1,5 +1,5 @@
 /* ============================================================
-   DUITTRACK — Style Sheet
+   RIZQTRACK — Style Sheet
    Aesthetic: Premium Finance Dashboard · Dark/Light Adaptive
    ============================================================ */
 
@@ -877,3 +877,8 @@ html, body { overscroll-behavior-y: contain; }
   background: var(--bg3); border: 1px solid var(--border); border-radius: var(--r-sm);
 }
 .code-actions { margin-top: 1rem; flex-wrap: wrap; }
+
+/* ---------- Petunjuk pasang aplikasi ---------- */
+.install-steps { margin: 0.75rem 0 0; padding-left: 1.3rem; color: var(--text); font-size: 0.92rem; line-height: 1.6; }
+.install-steps li { margin-bottom: 0.45rem; padding-left: 0.2rem; }
+.install-steps li::marker { color: var(--accent); font-weight: 700; }
