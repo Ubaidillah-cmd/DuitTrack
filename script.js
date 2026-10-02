@@ -1597,33 +1597,63 @@ function updateInstallUI() {
   const btn = document.getElementById('installBtn');
   const status = document.getElementById('installStatus');
   if (!btn || !status) return;
-  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
   if (isAndroidWebView()) {
     status.textContent = '✅ Kamu sudah memakai RizqTrack sebagai aplikasi Android.';
     btn.classList.add('hidden');
   } else if (isStandalone()) {
     status.textContent = '✅ RizqTrack sudah terpasang dan berjalan sebagai aplikasi.';
     btn.classList.add('hidden');
-  } else if (deferredInstallPrompt) {
-    status.textContent = 'Pasang RizqTrack di layar utama supaya bisa dibuka seperti aplikasi dan jalan offline.';
-    btn.classList.remove('hidden');
-  } else if (ios) {
-    status.textContent = 'Di iPhone/iPad: buka lewat Safari, ketuk tombol Bagikan, lalu pilih "Tambah ke Layar Utama".';
-    btn.classList.add('hidden');
   } else if (!/^https?:$/.test(location.protocol)) {
-    status.textContent = 'Mode pasang aplikasi butuh dibuka lewat https:// atau localhost (bukan file langsung). Upload ke GitHub Pages / Netlify, atau pakai Live Server.';
+    status.textContent = 'Pasang aplikasi butuh dibuka lewat https:// atau localhost (bukan file langsung). Upload ke Vercel / GitHub Pages / Netlify, atau pakai Live Server.';
     btn.classList.add('hidden');
   } else {
-    status.textContent = 'Kalau browser mendukung, pilih menu ⋮ → "Instal aplikasi" / "Tambahkan ke layar utama".';
-    btn.classList.add('hidden');
+    // Tombol SELALU tampil: kalau browser memberi izin pasang langsung → satu ketukan,
+    // kalau tidak → tampil petunjuk langkah sesuai browser yang dipakai.
+    status.textContent = 'Pasang RizqTrack di layar utama supaya terbuka seperti aplikasi biasa dan bisa dipakai offline.';
+    btn.classList.remove('hidden');
   }
 }
 
+function detectBrowser() {
+  const ua = navigator.userAgent || '';
+  if (/iphone|ipad|ipod/i.test(ua)) return /CriOS/.test(ua) ? 'ios-chrome' : 'ios-safari';
+  if (/SamsungBrowser/i.test(ua)) return 'samsung';
+  if (/Firefox|FxiOS/i.test(ua)) return 'firefox';
+  if (/EdgA|EdgiOS|Edg\//.test(ua)) return 'edge';
+  if (/Android/i.test(ua)) return 'chrome-android';
+  return 'desktop';
+}
+
+const INSTALL_STEPS = {
+  'chrome-android': ['Ketuk menu <b>⋮</b> (titik tiga) di pojok kanan atas browser.', 'Pilih <b>“Instal aplikasi”</b> (atau <b>“Tambahkan ke layar utama”</b>).', 'Ketuk <b>Instal</b>.', 'RizqTrack muncul di layar utama / laci aplikasi HP-mu.'],
+  samsung: ['Ketuk menu <b>≡</b> (garis tiga) di browser Samsung Internet.', 'Pilih <b>“Tambahkan halaman ke”</b>.', 'Pilih <b>“Layar utama”</b> lalu <b>Tambah</b>.', 'RizqTrack muncul di layar utama HP-mu.'],
+  firefox: ['Ketuk menu <b>⋮</b> di Firefox.', 'Pilih <b>“Instal”</b> (atau <b>“Tambahkan ke layar utama”</b>).', 'Konfirmasi dengan <b>Tambah</b>.'],
+  edge: ['Ketuk menu <b>⋯</b> di Microsoft Edge.', 'Pilih <b>“Tambahkan ke ponsel”</b> atau <b>“Instal aplikasi”</b>.', 'Konfirmasi dengan <b>Instal</b>.'],
+  'ios-safari': ['Ketuk tombol <b>Bagikan</b> (kotak dengan panah ke atas) di bagian bawah Safari.', 'Gulir lalu pilih <b>“Tambah ke Layar Utama”</b>.', 'Ketuk <b>Tambah</b> di pojok kanan atas.'],
+  'ios-chrome': ['Ketuk tombol <b>Bagikan</b> di Chrome.', 'Pilih <b>“Tambahkan ke Layar Utama”</b>.', 'Tips: di iPhone cara paling lancar memakai <b>Safari</b>.'],
+  desktop: ['Lihat ujung kanan kolom alamat browser, cari ikon <b>Instal</b> (monitor dengan panah).', 'Klik ikon itu, lalu klik <b>Instal</b>.', 'Atau buka menu <b>⋮</b> → <b>“Instal RizqTrack…”</b> / <b>“Simpan dan bagikan → Instal”</b>.']
+};
+
+function showInstallHelp() {
+  const steps = INSTALL_STEPS[detectBrowser()] || INSTALL_STEPS.desktop;
+  document.getElementById('installSteps').innerHTML = steps.map(s => `<li>${s}</li>`).join('');
+  showEl('installModal');
+}
+function closeInstallHelp() { hideEl('installModal'); }
+
 async function installApp() {
-  if (!deferredInstallPrompt) return;
-  deferredInstallPrompt.prompt();
-  await deferredInstallPrompt.userChoice;
-  deferredInstallPrompt = null;
+  // Browser tidak mengirim izin pasang otomatis → tampilkan langkah manual
+  if (!deferredInstallPrompt) { showInstallHelp(); return; }
+  const promptEvent = deferredInstallPrompt;
+  deferredInstallPrompt = null;               // event hanya boleh dipakai sekali
+  try {
+    promptEvent.prompt();
+    const choice = await promptEvent.userChoice;
+    if (choice && choice.outcome === 'accepted') showToast('📲 Memasang RizqTrack…', 'success');
+    else showToast('Pemasangan dibatalkan. Kamu bisa mencobanya lagi kapan saja.', 'warning');
+  } catch (e) {
+    showInstallHelp();
+  }
   updateInstallUI();
 }
 
