@@ -1,5 +1,5 @@
 /* =============================================================
-   DUITTRACK – script.js
+   RIZQTRACK – script.js
    Smart Daily Expense Reminder
    ============================================================= */
 
@@ -25,6 +25,75 @@ let wlTab = 'aktif';
 let wlEditingId = null;
 let wlDetailId = null;
 
+
+/* ===================== DRAF FORM ===================== */
+// Isian form yang belum disimpan otomatis disimpan sebagai draf, jadi tidak hilang
+// saat halaman di-refresh (pull-to-refresh), aplikasi ditutup, atau tidak sengaja ter-reload.
+const DRAFT_KEY = 'dt_drafts';
+const DRAFT_MAX_AGE = 3 * 24 * 3600 * 1000; // draf lebih dari 3 hari dibuang
+const DRAFT_FORMS = {
+  expense:   { label: 'Pengeluaran', fields: ['inputNama', 'inputKategori', 'inputNominal', 'inputTanggal', 'inputCatatan'], core: ['inputNama', 'inputNominal', 'inputCatatan'], editing: () => false },
+  income:    { label: 'Pemasukan',   fields: ['incNama', 'incKategori', 'incNominal', 'incTanggal', 'incCatatan'],           core: ['incNama', 'incNominal', 'incCatatan'],       editing: () => !!incomeEditingId },
+  wishlist:  { label: 'Wishlist',    fields: ['wlNama', 'wlHarga', 'wlSaved', 'wlPrioritas', 'wlDeadline', 'wlCatatan'],     core: ['wlNama', 'wlHarga', 'wlSaved', 'wlCatatan'], editing: () => !!wlEditingId },
+  recurring: { label: 'Berulang',    fields: ['rcType', 'rcKategori', 'rcNama', 'rcNominal', 'rcFreq', 'rcStart', 'rcMode'], core: ['rcNama', 'rcNominal'],                       editing: () => !!rcEditingId }
+};
+
+function readDrafts() {
+  try {
+    const d = JSON.parse(localStorage.getItem(DRAFT_KEY) || '{}');
+    return d && typeof d === 'object' ? d : {};
+  } catch (e) { return {}; }
+}
+function writeDrafts(d) { try { localStorage.setItem(DRAFT_KEY, JSON.stringify(d)); } catch (e) {} }
+
+function saveDraft(name) {
+  const cfg = DRAFT_FORMS[name];
+  if (!cfg || cfg.editing()) return;           // sedang edit data lama → tidak dijadikan draf
+  const values = {};
+  cfg.fields.forEach(id => { const el = document.getElementById(id); if (el) values[id] = el.value; });
+  const drafts = readDrafts();
+  if (cfg.core.some(id => (values[id] || '').trim() !== '')) drafts[name] = { values, at: Date.now() };
+  else delete drafts[name];                    // form kosong → tidak ada draf
+  writeDrafts(drafts);
+}
+
+function clearDraft(name) {
+  const drafts = readDrafts();
+  if (name in drafts) { delete drafts[name]; writeDrafts(drafts); }
+}
+
+// Mengisi kembali form dari draf. Mengembalikan daftar nama form yang dipulihkan.
+function restoreDrafts(drafts) {
+  const restored = [];
+  Object.entries(DRAFT_FORMS).forEach(([name, cfg]) => {
+    const d = drafts[name];
+    if (!d || !d.values) return;
+    if (Date.now() - (d.at || 0) > DRAFT_MAX_AGE) { delete drafts[name]; return; }   // draf basi dibuang
+    if (name === 'recurring' && d.values.rcType) {
+      document.getElementById('rcType').value = d.values.rcType;
+      fillRecurringCategories();               // kategori bergantung pada jenis
+    }
+    cfg.fields.forEach(id => {
+      const el = document.getElementById(id);
+      if (el && d.values[id] !== undefined) el.value = d.values[id];
+    });
+    if (name === 'recurring') updateRecurringHint();
+    restored.push(cfg.label);
+  });
+  return restored;
+}
+
+function initDrafts() {
+  Object.entries(DRAFT_FORMS).forEach(([name, cfg]) => {
+    cfg.fields.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('input', () => saveDraft(name));
+      el.addEventListener('change', () => saveDraft(name));
+    });
+  });
+}
+
 /* ===================== INIT ===================== */
 document.addEventListener('DOMContentLoaded', () => {
   loadData();
@@ -36,8 +105,12 @@ document.addEventListener('DOMContentLoaded', () => {
   initFilterBtns();
   initSeeAll();
   updateDarkModeToggle();
+  const draftsAtStart = readDrafts();     // diambil sebelum form di-reset
   resetIncomeForm();
   resetRecurringForm();
+  const restoredForms = restoreDrafts(draftsAtStart);
+  writeDrafts(draftsAtStart);             // reset di atas ikut menghapus draf → tulis ulang
+  initDrafts();
   initPWA();
   initPullToRefresh();
   refreshAll();
@@ -52,15 +125,28 @@ document.addEventListener('DOMContentLoaded', () => {
   } catch (e) {}
   if (startPage && document.getElementById('page-' + startPage)) navigateTo(startPage);
   updateBackupInfo();
-  setTimeout(checkBackupReminder, 1500);
+  if (restoredForms.length) setTimeout(() => showToast(`📝 Isian ${restoredForms.join(', ')} yang belum disimpan dipulihkan`, 'success'), 700);
+  setTimeout(checkBackupReminder, 4500);
 });
 
+// Baca localStorage dengan aman. Kalau isinya rusak, salinan mentahnya diselamatkan ke dt_rusak_* (tidak ditimpa diam-diam).
+function safeParse(key, fallback) {
+  const raw = localStorage.getItem(key);
+  if (raw === null) return fallback;
+  try { return JSON.parse(raw); }
+  catch (e) {
+    try { localStorage.setItem('dt_rusak_' + key, raw); } catch (e2) {}
+    console.warn('Data rusak di', key, '— disalin ke dt_rusak_' + key);
+    return fallback;
+  }
+}
+
 function loadData() {
-  expenses = JSON.parse(localStorage.getItem('dt_expenses') || '[]');
-  savingTargets = JSON.parse(localStorage.getItem('dt_targets') || '[]').map(normalizeWishlist);
-  incomes = JSON.parse(localStorage.getItem('dt_incomes') || '[]').map(normalizeIncome);
-  recurring = JSON.parse(localStorage.getItem('dt_recurring') || '[]').map(normalizeRecurring);
-  const s = JSON.parse(localStorage.getItem('dt_settings') || '{}');
+  expenses = safeParse('dt_expenses', []);
+  savingTargets = safeParse('dt_targets', []).map(normalizeWishlist);
+  incomes = safeParse('dt_incomes', []).map(normalizeIncome);
+  recurring = safeParse('dt_recurring', []).map(normalizeRecurring);
+  const s = safeParse('dt_settings', {});
   // migrate lama: budgetHarian → saldoSekarang
   const defaultSettings = { saldoAwal: 0, saldoSekarang: 0, pin: '', theme: 'dark' };
   settings = { ...defaultSettings, ...s };
@@ -340,6 +426,7 @@ function checkBudgetWarning() {
 }
 
 function resetForm() {
+  clearDraft('expense');
   document.getElementById('inputNama').value = '';
   document.getElementById('inputKategori').value = '';
   document.getElementById('inputNominal').value = '';
@@ -351,6 +438,7 @@ function quickCategory(cat, icon) {
   document.getElementById('inputKategori').value = cat;
   document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
   event.target.classList.add('active');
+  saveDraft('expense');
   document.getElementById('inputNama').focus();
 }
 
@@ -721,6 +809,7 @@ function saveWishlist() {
 }
 
 function resetWishlistForm() {
+  clearDraft('wishlist');
   ['wlNama', 'wlHarga', 'wlSaved', 'wlDeadline', 'wlCatatan'].forEach(id => { document.getElementById(id).value = ''; });
   document.getElementById('wlPrioritas').value = 'sedang';
   wlEditingId = null;
@@ -1075,6 +1164,7 @@ function saveIncome() {
 }
 
 function resetIncomeForm() {
+  clearDraft('income');
   ['incNama', 'incNominal', 'incCatatan'].forEach(id => { document.getElementById(id).value = ''; });
   document.getElementById('incKategori').value = '';
   document.getElementById('incTanggal').value = toDateStr(new Date());
@@ -1375,6 +1465,7 @@ function saveRecurring() {
 }
 
 function resetRecurringForm() {
+  clearDraft('recurring');
   ['rcNama', 'rcNominal'].forEach(id => { document.getElementById(id).value = ''; });
   document.getElementById('rcType').value = 'expense';
   fillRecurringCategories();
@@ -1478,6 +1569,8 @@ function renderRecurring() {
 let deferredInstallPrompt = null;
 
 function initPWA() {
+  // Minta browser/WebView agar data tidak dibersihkan otomatis saat penyimpanan hampir penuh
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); } catch (e) {}
   if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
     navigator.serviceWorker.register('sw.js').catch(err => console.warn('SW gagal:', err));
   }
@@ -1490,7 +1583,7 @@ function initPWA() {
   window.addEventListener('appinstalled', () => {
     deferredInstallPrompt = null;
     updateInstallUI();
-    showToast('📲 DuitTrack berhasil dipasang!', 'success');
+    showToast('📲 RizqTrack berhasil dipasang!', 'success');
   });
   updateInstallUI();
 }
@@ -1506,13 +1599,13 @@ function updateInstallUI() {
   if (!btn || !status) return;
   const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
   if (isAndroidWebView()) {
-    status.textContent = '✅ Kamu sudah memakai DuitTrack sebagai aplikasi Android.';
+    status.textContent = '✅ Kamu sudah memakai RizqTrack sebagai aplikasi Android.';
     btn.classList.add('hidden');
   } else if (isStandalone()) {
-    status.textContent = '✅ DuitTrack sudah terpasang dan berjalan sebagai aplikasi.';
+    status.textContent = '✅ RizqTrack sudah terpasang dan berjalan sebagai aplikasi.';
     btn.classList.add('hidden');
   } else if (deferredInstallPrompt) {
-    status.textContent = 'Pasang DuitTrack di layar utama supaya bisa dibuka seperti aplikasi dan jalan offline.';
+    status.textContent = 'Pasang RizqTrack di layar utama supaya bisa dibuka seperti aplikasi dan jalan offline.';
     btn.classList.remove('hidden');
   } else if (ios) {
     status.textContent = 'Di iPhone/iPad: buka lewat Safari, ketuk tombol Bagikan, lalu pilih "Tambah ke Layar Utama".';
@@ -1637,7 +1730,7 @@ function exportCSV() {
     `"${e.name}"`, `"${e.category}"`, e.amount, e.date, `"${e.note || ''}"`
   ]);
   const csv = [header, ...rows].map(r => r.join(',')).join('\n');
-  downloadFile('DuitTrack_Export.csv', 'text/csv', csv);
+  downloadFile('RizqTrack_Export.csv', 'text/csv', csv);
   showToast('📄 CSV berhasil diunduh!', 'success');
 }
 
@@ -1659,7 +1752,7 @@ function exportExcel() {
     ]);
     XLSX.utils.book_append_sheet(wb, wsIn, 'Pemasukan');
   }
-  XLSX.writeFile(wb, 'DuitTrack_Export.xlsx');
+  XLSX.writeFile(wb, 'RizqTrack_Export.xlsx');
   showToast('📊 Excel berhasil diunduh!', 'success');
 }
 
@@ -1673,7 +1766,7 @@ function isAndroidWebView() {
 
 function buildBackupData() {
   return {
-    app: 'DuitTrack',
+    app: 'RizqTrack',
     version: 3,
     exportedAt: new Date().toISOString(),
     expenses,
@@ -1697,7 +1790,7 @@ function backupJSON() {
     return;
   }
   const stamp = toDateStr(new Date());
-  downloadFile(`DuitTrack_Backup_${stamp}.json`, 'application/json', JSON.stringify(buildBackupData(), null, 2));
+  downloadFile(`RizqTrack_Backup_${stamp}.json`, 'application/json', JSON.stringify(buildBackupData(), null, 2));
   markBackupDone();
   showToast('💾 Backup berhasil diunduh!', 'success');
 }
@@ -1790,7 +1883,7 @@ async function openBackupCode() {
     buttons.push({
       label: '📤 Bagikan', cls: 'btn-outline',
       fn: async () => {
-        try { await navigator.share({ title: 'Backup DuitTrack', text: code }); markBackupDone(); }
+        try { await navigator.share({ title: 'Backup RizqTrack', text: code }); markBackupDone(); }
         catch (e) { if (e && e.name !== 'AbortError') showToast('Gagal membagikan, coba Salin Kode', 'error'); }
       }
     });
