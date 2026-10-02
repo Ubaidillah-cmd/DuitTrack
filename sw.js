@@ -1,6 +1,6 @@
 /* RizqTrack service worker – bikin app bisa dipasang & jalan offline.
    Ganti angka VERSION setiap kali kamu mengubah file app supaya cache diperbarui. */
-const VERSION = 'v1.4.1';
+const VERSION = 'v1.4.2';
 const CACHE = 'rizqtrack-' + VERSION;
 
 const APP_SHELL = [
@@ -48,6 +48,7 @@ self.addEventListener('fetch', event => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (!['http:', 'https:'].includes(url.protocol)) return;
+  if (url.pathname.endsWith('.apk')) return;      // file APK dibiarkan lewat jaringan, tidak di-cache
   event.respondWith(url.origin === self.location.origin ? networkFirst(req) : staleWhileRevalidate(req));
 });
 
