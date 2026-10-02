@@ -1,7 +1,7 @@
-/* DuitTrack service worker – bikin app bisa dipasang & jalan offline.
+/* RizqTrack service worker – bikin app bisa dipasang & jalan offline.
    Ganti angka VERSION setiap kali kamu mengubah file app supaya cache diperbarui. */
-const VERSION = 'v1.3.1';
-const CACHE = 'duittrack-' + VERSION;
+const VERSION = 'v1.4.0';
+const CACHE = 'rizqtrack-' + VERSION;
 
 const APP_SHELL = [
   './',
@@ -36,7 +36,7 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
-    await Promise.all(keys.filter(k => k.startsWith('duittrack-') && k !== CACHE).map(k => caches.delete(k)));
+    await Promise.all(keys.filter(k => (k.startsWith('rizqtrack-') || k.startsWith('duittrack-')) && k !== CACHE).map(k => caches.delete(k)));
     await self.clients.claim();
   })());
 });
