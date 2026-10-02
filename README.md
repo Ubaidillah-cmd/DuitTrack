@@ -1,147 +1,151 @@
-# 💸 DuitTrack – Smart Daily Expense Reminder
+# 💸 RizqTrack – Smart Daily Expense Reminder
 
-DuitTrack adalah website **frontend-only** untuk membantu pengguna mencatat pengeluaran harian secara cepat, praktis, dan modern. Cocok digunakan untuk memantau uang keluar setiap hari seperti makan, bensin, kopi, jajan, transportasi, dan kebutuhan lainnya.
+RizqTrack adalah aplikasi web **frontend-only** untuk mencatat pemasukan dan pengeluaran harian secara cepat, praktis, dan modern. Cocok untuk memantau uang masuk dan keluar setiap hari, mengelola wishlist, serta mengingatkan tagihan rutin.
 
-Website ini berjalan langsung di browser tanpa backend dan tanpa database. Semua data disimpan secara lokal menggunakan **LocalStorage**.
+Berjalan langsung di browser tanpa backend dan tanpa database. Semua data disimpan secara lokal menggunakan **LocalStorage**, bisa dipasang sebagai aplikasi (PWA), dan bisa dibungkus menjadi APK Android.
 
 ---
 
-## ✨ Features
+## ✨ Fitur
 
-* 📊 Dashboard ringkasan keuangan harian
-* 💰 Total pengeluaran hari ini, minggu ini, dan bulan ini
-* ➕ Tambah transaksi pengeluaran
-* 🗂️ Kategori pengeluaran custom
-* 📝 Catatan tambahan setiap transaksi
-* 📅 Pilih tanggal transaksi
-* 📚 Riwayat pengeluaran
-* ✏️ Edit & hapus data
-* 🔍 Search dan filter transaksi
-* 📈 Grafik pengeluaran (Chart.js)
-* 🎯 Ringkasan saldo & pemakaian (saldo hanya bertambah lewat menu Pemasukan)
-* 🎁 Wishlist banyak item: klik untuk detail, Hapus, atau Tercapai (saldo otomatis berkurang)
-* 💵 Catat pemasukan (saldo awal, gaji, uang saku, freelance, dll) — saldo otomatis bertambah
-* 🏷️ Kategori pengeluaran: Makan, Bensin, Kopi, Jajan, Transportasi, Tagihan, Belanja, Rokok, Skincare, Pakaian, Lainnya
-* 🔄 Pull-to-refresh: tarik ke bawah saat halaman di posisi paling atas
-* 🔁 Transaksi berulang (mingguan / bulanan / tahunan): diingatkan atau dicatat otomatis
-* 📈 Grafik pemasukan vs pengeluaran 6 bulan
-* 💾 Backup & Restore data (JSON) + undo restore + pengingat backup
-* 📲 PWA: bisa dipasang di HP/PC dan jalan offline
+### 💰 Keuangan harian
+* 📊 Dashboard: pengeluaran hari ini, minggu ini, bulan ini, pemasukan bulan ini, dan kategori teratas
+* ➕ Tambah pengeluaran (nama, kategori, nominal, tanggal, catatan) dengan kategori cepat
+* 🏷️ Kategori: Makan, Bensin, Kopi, Jajan, Transportasi, Tagihan, Belanja, Rokok, Skincare, Pakaian, Lainnya
+* 📚 Riwayat pengeluaran dengan pencarian, filter, dan pengurutan; edit & hapus data
+* 📈 Statistik: grafik mingguan, per kategori, per hari, dan pemasukan vs pengeluaran 6 bulan
+
+### 💵 Pemasukan & saldo
+* Catat pemasukan (Saldo Awal, Gaji, Uang Saku, Freelance, Usaha, Bonus, Hadiah, Lainnya)
+* Saldo **hanya bertambah lewat menu Pemasukan** dan berkurang otomatis saat ada pengeluaran
+* Menu Target menampilkan ringkasan saldo, total masuk, dan total terpakai
+* Peringatan saat saldo hampir habis atau minus
+
+### 🎁 Wishlist
+* Banyak wishlist sekaligus (nama, harga, prioritas, target tanggal, catatan)
+* Klik wishlist untuk melihat detail lengkap, progress tabungan, dan cek apakah saldo cukup
+* Aksi **Hapus**, **Edit**, dan **Tercapai**. Saat Tercapai, saldo berkurang otomatis sebesar harga dan tercatat di Riwayat (kategori Wishlist)
+* Bisa membatalkan status Tercapai (saldo dikembalikan)
+
+### 🔁 Transaksi berulang
+* Jadwal mingguan / bulanan / tahunan untuk pengeluaran (Wi-Fi, langganan, kos) atau pemasukan (gaji, uang saku)
+* **Ingatkan saya**: muncul kartu Jatuh Tempo di Dashboard dengan tombol Bayar / Lewati
+* **Catat otomatis**: transaksi dibuat sendiri dan saldo menyesuaikan
+* Jadwal bisa dijeda, diedit, dan dihapus
+
+### 💾 Backup & Restore
+* **Backup File** (JSON) dan **Restore File**
+* **Backup Kode**: data dijadikan satu teks yang bisa disalin lalu disimpan di WhatsApp / Catatan, dan ditempel kembali saat **Restore Kode**. Berguna di APK/WebView yang tidak bisa mengunduh file
+* Ringkasan data sebelum restore, tombol **Batalkan Restore Terakhir**, dan pengingat backup mingguan
+* Backup lama tetap bisa di-restore
+
+### 🛡️ Kenyamanan & keamanan
+* 📝 **Draf otomatis**: isian form yang belum disimpan tidak hilang saat halaman di-refresh atau aplikasi ditutup
+* 🔄 Pull-to-refresh: tarik ke bawah dari posisi paling atas halaman
+* 🔐 Kunci PIN 4 digit
 * 🌙 Dark mode / ☀️ Light mode
-* 📱 Responsive mobile & desktop
-* 💾 Data tersimpan otomatis di browser
+* 📱 Responsive untuk HP dan desktop
+* 📤 Export CSV dan Excel
+* 📲 PWA: bisa dipasang di layar utama dan jalan offline
 
 ---
 
-## 🛠️ Built With
+## 🛠️ Dibangun Dengan
 
-* HTML5
-* CSS3
-* JavaScript (Vanilla JS)
+* HTML5, CSS3, JavaScript (Vanilla JS)
 * LocalStorage API
-* Chart.js
+* Chart.js (grafik) dan SheetJS (export Excel)
+* Service Worker + Web App Manifest (PWA)
 
 ---
 
-## 📁 Project Structure
+## 📁 Struktur Project
 
 ```text
-duittrack/
-│── index.html
-│── style.css
-│── script.js
-│── manifest.json     (PWA)
-│── sw.js             (service worker / offline)
-│── icons/            (ikon aplikasi)
+rizqtrack/
+│── index.html        halaman utama & seluruh tampilan
+│── style.css         gaya tampilan
+│── script.js         seluruh logika aplikasi
+│── manifest.json     konfigurasi PWA
+│── sw.js             service worker (offline & cache)
+│── icons/            ikon aplikasi
 │── README.md
 ```
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Memulai
 
 ### 1. Clone Repository
 
 ```bash
-git clone https://github.com/username/duittrack.git
+git clone https://github.com/username/rizqtrack.git
 ```
 
-### 2. Open Project
+### 2. Jalankan
 
-Masuk ke folder project lalu buka file:
+Buka folder project lalu jalankan `index.html`, atau gunakan **Live Server** di VS Code.
 
-```text
-index.html
-```
+> **Catatan PWA:** fitur pasang aplikasi & mode offline hanya aktif jika dibuka lewat `https://` atau `localhost`
+> (mis. GitHub Pages, Netlify, Live Server). Jika `index.html` dibuka langsung dari folder (`file://`),
+> aplikasi tetap berjalan normal tetapi tidak bisa dipasang.
 
-Atau jalankan menggunakan Live Server di VS Code.
+### 3. Memperbarui versi
 
-> **Catatan PWA:** fitur pasang aplikasi & offline hanya aktif kalau dibuka lewat `https://` atau `localhost`
-> (mis. GitHub Pages, Netlify, Live Server). Kalau membuka `index.html` langsung dari folder (`file://`),
-> aplikasi tetap jalan normal tapi tidak bisa dipasang. Setiap mengubah file app, naikkan `VERSION` di `sw.js`
-> supaya cache di perangkat pengguna diperbarui.
+Setiap kali file aplikasi diubah, naikkan angka `VERSION` di `sw.js` supaya cache di perangkat pengguna ikut diperbarui. Setelah itu buka aplikasi dua kali (sekali mengambil versi baru, sekali memakainya).
 
 ---
 
-## 💡 How It Works
+## 📱 Dijadikan APK Android
 
-1. Tambahkan pengeluaran harian.
-2. Pilih kategori dan nominal.
-3. Data otomatis tersimpan di browser.
-4. Lihat total pengeluaran dan statistik.
-5. Kelola keuangan lebih disiplin.
+RizqTrack dapat dibungkus menjadi APK memakai layanan seperti WebIntoApp dengan URL website (mis. GitHub Pages).
 
----
-
-## 📷 Preview Modules
-
-* Dashboard
-* Add Expense Form
-* Expense History
-* Analytics Chart
-* Budget Reminder
-* Settings
+* Nama dan ikon APK diatur di dashboard layanan pembungkusnya
+* Di APK, unduh file sering tidak didukung, gunakan **Backup Kode** dan **Restore Kode**
+* Jika APK punya opsi *pull to refresh* bawaan, sebaiknya dimatikan karena RizqTrack sudah punya pull-to-refresh sendiri
 
 ---
 
-## 🎯 Use Cases
+## 💡 Cara Kerja
 
-* Mahasiswa
-* Freelancer
-* Karyawan
-* Anak kost
-* Pelaku UMKM
-* Siapa pun yang ingin mengatur pengeluaran harian
-
----
-
-## 🔒 Privacy
-
-Semua data tersimpan **lokal di perangkat pengguna** dan tidak dikirim ke server mana pun.
+1. Catat **pemasukan** (termasuk saldo awal) agar saldo terisi.
+2. Catat **pengeluaran** harian, saldo berkurang otomatis.
+3. Atur **transaksi berulang** untuk tagihan atau gaji rutin.
+4. Simpan barang impian di **Wishlist**, tandai Tercapai saat sudah dibeli.
+5. Pantau **Statistik** dan lakukan **Backup** secara berkala.
 
 ---
 
-## 🧠 Future Improvements
+## 🔒 Privasi
 
-* Multi wallet support
-* Notification reminder
+Semua data tersimpan **lokal di perangkat pengguna** dan tidak dikirim ke server mana pun. Karena itu, lakukan backup secara rutin: jika data aplikasi atau browser dihapus, data ikut hilang.
 
 ---
 
-## 🤝 Contributing
+## 🧠 Rencana Pengembangan
+
+* Multi dompet
+* Notifikasi pengingat
+* Kategori kustom
+* Template transaksi
+* Perbandingan dengan bulan lalu
+
+---
+
+## 🤝 Berkontribusi
 
 Pull request dan ide pengembangan sangat terbuka.
 
 1. Fork repository
-2. Create new branch
-3. Commit changes
-4. Open pull request
+2. Buat branch baru
+3. Commit perubahan
+4. Buka pull request
 
 ---
 
-## 📄 License
+## 📄 Lisensi
 
-This project is licensed under the MIT License.
+Project ini dilisensikan di bawah MIT License.
 
 ---
 
@@ -151,6 +155,6 @@ Development by **ABD. Rohman Ubaidillah, S.Kom**
 
 ---
 
-## ⭐ Support
+## ⭐ Dukungan
 
 Jika project ini bermanfaat, beri ⭐ di GitHub repository.
